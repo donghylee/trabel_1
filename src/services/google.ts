@@ -1,16 +1,17 @@
 import { Loader } from '@googlemaps/js-api-loader'
+import { config } from '../config'
 import type { Country, LatLng, PlaceCategory } from '../types'
 
 // Google Maps Platform 연결.
-// .env.local 에 VITE_GOOGLE_MAPS_API_KEY 가 있으면 지도·검색·주변 장소를 Google로, 없으면 무료 서비스로 동작한다.
+// Google 키가 설정돼 있으면(.env.local 또는 Docker 환경변수) 지도·검색·주변 장소를 Google로, 없으면 무료 서비스로 동작한다.
 
-const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim()
+const API_KEY = config.googleMapsApiKey
 
 /** Google을 쓸 수 있는지 (키가 설정됐는지) */
 export const googleEnabled = !!API_KEY
 
 /** 고급 마커(AdvancedMarkerElement)에 필요한 지도 ID — 개발 중에는 Google이 제공하는 DEMO_MAP_ID */
-export const GOOGLE_MAP_ID = import.meta.env.VITE_GOOGLE_MAP_ID?.trim() || 'DEMO_MAP_ID'
+export const GOOGLE_MAP_ID = config.googleMapId || 'DEMO_MAP_ID'
 
 let loader: Loader | null = null
 

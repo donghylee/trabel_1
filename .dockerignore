@@ -1,0 +1,10 @@
+# 이미지에 넣지 않을 것 — 특히 키 파일(.env*)은 절대 넣지 않음
+.env
+.env.*
+!.env.example
+node_modules
+dist
+.git
+.claude
+screenshots
+*.log

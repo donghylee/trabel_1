@@ -1,3 +1,4 @@
+import { config } from '../config'
 import { decodePolyline } from '../lib/polyline'
 import { estimateLeg, modeLabels, recommend, taxiFare, transitFare } from '../lib/travel'
 import type { Country, LatLng, Leg, Place, TravelMode, TravelOption } from '../types'
@@ -9,9 +10,9 @@ import { googleEnabled } from './google'
 //   그 밖의 나라(베트남·대만·태국 등)  도보·대중교통·택시 모두 Google (요금은 받으면 실제, 못 받으면 추정)
 // 키가 브라우저에 보이므로 각 서비스 콘솔에서 사용처(localhost 등) 제한을 꼭 걸어야 한다.
 
-const GOOGLE_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim()
-const ODSAY_KEY = import.meta.env.VITE_ODSAY_API_KEY?.trim()
-const TMAP_KEY = import.meta.env.VITE_TMAP_APP_KEY?.trim()
+const GOOGLE_KEY = config.googleMapsApiKey
+const ODSAY_KEY = config.odsayApiKey
+const TMAP_KEY = config.tmapAppKey
 const TIMEOUT_MS = 12000
 
 type Provider = 'TMAP' | 'ODsay' | 'Google'
