@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { findCountry, localizePlaceName, placesOf, tripTitle } from '../data/catalog'
 import type { Bookmark } from '../hooks/useBookmarks'
 import { useFetchRealLegs, useRealLegStore } from '../hooks/useRealLegs'
@@ -50,7 +50,19 @@ function DaySummary({ day }: { day: SavedDay }) {
 }
 
 /** 저장한 하루 일정을 다시 계산해서 읽기 전용으로 보여줌 */
-function SavedDayView({ trip, day, onEdit, onDelete }: { trip: SavedTrip; day: SavedDay; onEdit: () => void; onDelete: () => void }) {
+function SavedDayView({
+  trip,
+  day,
+  panelTop,
+  onEdit,
+  onDelete,
+}: {
+  trip: SavedTrip
+  day: SavedDay
+  panelTop: ReactNode
+  onEdit: () => void
+  onDelete: () => void
+}) {
   const country = findCountry(trip.countryCode)
   const realLegs = useRealLegStore()
   const result = useMemo(() => {
@@ -81,6 +93,7 @@ function SavedDayView({ trip, day, onEdit, onDelete }: { trip: SavedTrip; day: S
       isCustomOrder={day.customOrder !== null}
       mealChoices={day.mealChoices}
       title={`${tripTitle(trip)} · ${t('{n}일차', { n: day.dayNumber })}`}
+      panelTop={panelTop}
       actions={
         <>
           <button type="button" className="btn small" onClick={onEdit}>
@@ -124,59 +137,63 @@ export default function MyPage({
   if (trip) {
     const day = trip.days.find((d) => d.dayNumber === selection?.dayNumber) ?? trip.days[0]
     const country = findCountry(trip.countryCode)
-    return (
-      <div className="mypage-detail">
-        <div className="trip-bar">
-          <button type="button" className="btn small" onClick={() => onSelect(null)}>
-            ← {t('목록')}
-          </button>
-          {renaming !== null ? (
-            <form
-              className="rename-form"
-              onSubmit={(e) => {
-                e.preventDefault()
-                if (renaming.trim()) onRenameTrip(trip, renaming.trim())
-                setRenaming(null)
-              }}
-            >
-              <input className="text-input" value={renaming} onChange={(e) => setRenaming(e.target.value)} autoFocus />
-              <button type="submit" className="btn small primary">
-                {t('확인')}
-              </button>
-            </form>
-          ) : (
-            <h2 className="trip-name">
-              {country?.flag} {tripTitle(trip)}
-              <button type="button" className="link-btn" onClick={() => setRenaming(trip.name)}>
-                {t('이름 변경')}
-              </button>
-            </h2>
-          )}
-          <div className="day-tabs" role="tablist">
-            {trip.days.map((d) => (
-              <button
-                key={d.dayNumber}
-                type="button"
-                role="tab"
-                aria-selected={d.dayNumber === day?.dayNumber}
-                className={`tab ${d.dayNumber === day?.dayNumber ? 'active' : ''}`}
-                onClick={() => onSelect({ tripId: trip.id, dayNumber: d.dayNumber })}
-              >
-                {t('{n}일차', { n: d.dayNumber })}
-              </button>
-            ))}
-            <button type="button" className="tab add" onClick={() => onAddDay(trip)}>
-              {t('+ 일차 추가')}
+    // 목록으로·여행 이름·일차 탭·공유 — 오른쪽 정보창 맨 위에 둠 (일차가 없으면 화면 위에)
+    const tripBar = (
+      <div className="trip-bar">
+        <button type="button" className="btn small" onClick={() => onSelect(null)}>
+          ← {t('목록')}
+        </button>
+        {renaming !== null ? (
+          <form
+            className="rename-form"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (renaming.trim()) onRenameTrip(trip, renaming.trim())
+              setRenaming(null)
+            }}
+          >
+            <input className="text-input" value={renaming} onChange={(e) => setRenaming(e.target.value)} autoFocus />
+            <button type="submit" className="btn small primary">
+              {t('확인')}
             </button>
-          </div>
-          <button type="button" className="btn small" disabled={trip.days.length === 0} onClick={() => setSharing(trip)}>
-            📤 {t('공유')}
+          </form>
+        ) : (
+          <h2 className="trip-name">
+            {country?.flag} {tripTitle(trip)}
+            <button type="button" className="link-btn" onClick={() => setRenaming(trip.name)}>
+              {t('이름 변경')}
+            </button>
+          </h2>
+        )}
+        <button type="button" className="btn small" disabled={trip.days.length === 0} onClick={() => setSharing(trip)}>
+          📤 {t('공유')}
+        </button>
+        <div className="day-tabs" role="tablist">
+          {trip.days.map((d) => (
+            <button
+              key={d.dayNumber}
+              type="button"
+              role="tab"
+              aria-selected={d.dayNumber === day?.dayNumber}
+              className={`tab ${d.dayNumber === day?.dayNumber ? 'active' : ''}`}
+              onClick={() => onSelect({ tripId: trip.id, dayNumber: d.dayNumber })}
+            >
+              {t('{n}일차', { n: d.dayNumber })}
+            </button>
+          ))}
+          <button type="button" className="tab add" onClick={() => onAddDay(trip)}>
+            {t('+ 일차 추가')}
           </button>
         </div>
+      </div>
+    )
+    return (
+      <div className="mypage-detail">
         {day ? (
           <SavedDayView
             trip={trip}
             day={day}
+            panelTop={tripBar}
             onEdit={() => onEditDay(trip, day)}
             onDelete={() => {
               if (window.confirm(t('{name} {n}일차 일정을 삭제할까요?', { name: tripTitle(trip), n: day.dayNumber }))) {
@@ -185,9 +202,12 @@ export default function MyPage({
             }}
           />
         ) : (
-          <div className="app-main">
-            <p className="hint">{t('저장된 일차가 없습니다. [+ 일차 추가]로 일정을 만들어 주세요.')}</p>
-          </div>
+          <>
+            {tripBar}
+            <div className="app-main">
+              <p className="hint">{t('저장된 일차가 없습니다. [+ 일차 추가]로 일정을 만들어 주세요.')}</p>
+            </div>
+          </>
         )}
         {shareDialog}
       </div>

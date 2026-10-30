@@ -37,6 +37,8 @@ type Props = {
   actions?: ReactNode
   /** 제목 아래 알림 (저장 완료 등) */
   banner?: ReactNode
+  /** 오른쪽 정보창 맨 위에 둘 내용 (마이페이지: 목록·일차 탭·공유) */
+  panelTop?: ReactNode
   /** 없으면 읽기 전용 (마이페이지에서 저장한 일정 볼 때) */
   editor?: ScheduleEditor
   routeStatus?: RouteStatus
@@ -138,6 +140,7 @@ export default function ScheduleView({
   title,
   actions,
   banner,
+  panelTop,
   editor,
   routeStatus,
 }: Props) {
@@ -333,6 +336,7 @@ export default function ScheduleView({
       </section>
 
       <div className="wizard schedule">
+        {panelTop}
         <div className="schedule-head">
           <h2 className="wizard-title">
             {country.flag} {title}

@@ -1137,9 +1137,10 @@ body:has(.drag-ghost) { cursor: grabbing; }
 @media (max-width: 480px) {
   .app-header { padding: 0 8px; }
   .app-header-inner { gap: 6px; }
-  .brand img { height: 24px; }
+  .brand img { height: 22px; }
   .header-tabs { gap: 0; }
-  .header-tabs button { padding: 0 5px; white-space: nowrap; }
+  .header-tabs button { padding: 0 4px; font-size: 12px; white-space: nowrap; }
+  .header-tabs .count { min-width: 16px; padding: 0 4px; line-height: 16px; font-size: 10px; }
   .account-name { display: none; }
   .lang-toggle { margin-left: 0; }
   .lang-toggle button { padding: 3px 5px; font-size: 11px; }
@@ -1156,3 +1157,16 @@ a.btn { color: var(--text); text-decoration: none; display: inline-flex; align-i
 .stop-remove:hover:not(:disabled) { color: var(--error); background: #fef2f2; }
 .stop-remove:disabled { opacity: 0.3; cursor: not-allowed; }
 .stop-remove:disabled:hover { background: none; color: var(--muted); }
+
+/* 마이페이지 상세: 목록·일차 탭·공유 줄을 오른쪽 정보창 맨 위에 */
+.wizard.schedule > .trip-bar {
+  margin: -28px -28px 0;
+  padding: 12px 20px 0;
+  position: sticky;
+  top: -28px;
+  z-index: 5;
+}
+.wizard.schedule > .trip-bar .trip-name { flex: 1; min-width: 0; font-size: 16px; }
+@media (max-width: 600px) {
+  .wizard.schedule > .trip-bar { margin: -20px -16px 0; padding: 10px 16px 0; top: -20px; }
+}
