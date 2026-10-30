@@ -1,3 +1,4 @@
+import { apiLanguage, t } from '../i18n'
 import { defaultStay } from '../lib/place'
 import { distanceMeters } from '../lib/travel'
 import type { Country, LatLng, NearbyKind, NearbyPlace, Place } from '../types'
@@ -19,7 +20,7 @@ const basicFields = ['id', 'displayName', 'location', 'formattedAddress', 'types
 
 /** 주소 앞의 나라 이름은 뺌 ("대한민국 서울특별시 …" → "서울특별시 …") */
 function shortAddress(address: string | null | undefined): string | undefined {
-  return address?.replace(/^(대한민국|일본)\s+/, '') || undefined
+  return address?.replace(/^(대한민국|일본|South Korea|Japan),?\s+/, '') || undefined
 }
 
 function toPlace(p: google.maps.places.Place): Place | null {
@@ -42,7 +43,7 @@ export async function googleSearchPlaces(query: string, country: Country, near: 
   const { places } = await Place.searchByText({
     textQuery: query,
     fields: basicFields,
-    language: 'ko',
+    language: apiLanguage(),
     region: country.code.toLowerCase(),
     maxResultCount: SEARCH_LIMIT,
     // 고른 장소가 있으면 그 근처 우선, 없으면 나라 안으로 한정
@@ -67,9 +68,9 @@ export async function googlePlaceAt(point: LatLng, country: Country): Promise<Pl
       locationRestriction: { center: point, radius: PIN_POI_RADIUS },
       rankPreference: SearchNearbyRankPreference.DISTANCE,
       maxResultCount: 1,
-      language: 'ko',
+      language: apiLanguage(),
     }).catch(() => ({ places: [] as google.maps.places.Place[] })),
-    new Geocoder().geocode({ location: point, language: 'ko' }).catch(() => ({ results: [] as google.maps.GeocoderResult[] })),
+    new Geocoder().geocode({ location: point, language: apiLanguage() }).catch(() => ({ results: [] as google.maps.GeocoderResult[] })),
   ])
 
   const countryCode = geocoded.results[0]?.address_components.find((c) => c.types.includes('country'))?.short_name
@@ -82,7 +83,7 @@ export async function googlePlaceAt(point: LatLng, country: Country): Promise<Pl
   const address = shortAddress(geocoded.results[0]?.formatted_address)
   return {
     id: `pin-${point.lat.toFixed(5)},${point.lng.toFixed(5)}`,
-    name: address ? `${address} 근처` : '지도에서 고른 위치',
+    name: address ? t('{name} 근처', { name: address }) : t('지도에서 고른 위치'),
     category: 'sight',
     location: point,
     address,
@@ -99,7 +100,7 @@ export async function googleFamousNearby(point: LatLng): Promise<Place[]> {
     includedTypes: ['tourist_attraction', 'museum', 'art_gallery', 'historical_landmark', 'park', 'observation_deck'],
     rankPreference: SearchNearbyRankPreference.POPULARITY,
     maxResultCount: FAMOUS_LIMIT + 2,
-    language: 'ko',
+    language: apiLanguage(),
   })
   return places
     .flatMap((p) => {
@@ -125,7 +126,7 @@ export async function googleNearbyRated(around: Place, kind: NearbyKind): Promis
     includedTypes: typesByKind[kind],
     rankPreference: SearchNearbyRankPreference.POPULARITY,
     maxResultCount: 20,
-    language: 'ko',
+    language: apiLanguage(),
   })
   return places.flatMap((p) => {
     const location = toLatLng(p.location)

@@ -1,4 +1,5 @@
-import { placesOf } from '../data/catalog'
+import { placesOf, tripTitle } from '../data/catalog'
+import { t } from '../i18n'
 import type { Country, SavedDay, SavedTrip } from '../types'
 import { buildSchedule, mealLabels } from './schedule'
 import { toHHMM } from './time'
@@ -15,7 +16,7 @@ const COLORS = {
   text: '#1d2330',
   muted: '#6b7280',
   border: '#e5e7eb',
-  accent: '#2563eb',
+  accent: '#f86a07',
   meal: '#c2410c',
 }
 
@@ -49,14 +50,14 @@ function rowsOf(day: SavedDay, country: Country | undefined): { range: string; r
         return [{ time: range, text: `${item.order}. ${item.place.name}`, color: COLORS.text, bold: true }]
       case 'meal': {
         const name = item.restaurant?.name ?? day.mealChoices[item.meal]?.name
-        const text = `🍽 ${mealLabels[item.meal]}${name ? ` · ${name}` : ' 식사'}`
+        const text = `🍽 ${name ? `${t(mealLabels[item.meal])} · ${name}` : t('{meal} 식사', { meal: t(mealLabels[item.meal]) })}`
         return [{ time: range, text, color: COLORS.meal, bold: false }]
       }
       case 'lodging':
         return [
           {
             time: toHHMM(item.role === 'depart' ? item.start : item.end),
-            text: `🏨 ${item.place.name} ${item.role === 'depart' ? '출발' : '도착'}`,
+            text: `🏨 ${t(item.role === 'depart' ? '{name} 출발' : '{name} 도착', { name: item.place.name })}`,
             color: COLORS.muted,
             bold: false,
           },
@@ -94,13 +95,13 @@ export async function renderTripImage(trip: SavedTrip, country: Country | undefi
 
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('canvas를 쓸 수 없습니다.')
+  if (!ctx) throw new Error(t('canvas를 쓸 수 없습니다.'))
 
   const textWidth = WIDTH - PAD * 2 - 48 - TIME_WIDTH // 일차 카드 안 장소 이름 칸 폭
   const days = trip.days.map((day) => {
     const { range, rows } = rowsOf(day, country)
     const lines: Line[] = [
-      { time: '', text: `${day.dayNumber}일차   ${range}`, font: font(34, 700), color: COLORS.accent, height: 60 },
+      { time: '', text: `${t('{n}일차', { n: day.dayNumber })}   ${range}`, font: font(34, 700), color: COLORS.accent, height: 60 },
     ]
     for (const row of rows) {
       const rowFont = font(28, row.bold ? 600 : 400)
@@ -127,12 +128,13 @@ export async function renderTripImage(trip: SavedTrip, country: Country | undefi
   ctx.textBaseline = 'top'
   ctx.fillStyle = 'rgba(255,255,255,0.8)'
   ctx.font = font(26, 600)
-  ctx.fillText('여행 동선 플래너', PAD, 40)
+  ctx.fillText('PLAN:J', PAD, 40)
   ctx.fillStyle = '#ffffff'
   ctx.font = font(52, 800)
-  ctx.fillText(wrap(ctx, [trip.name], WIDTH - PAD * 2)[0] ?? trip.name, PAD, 78)
+  const title = tripTitle(trip)
+  ctx.fillText(wrap(ctx, [title], WIDTH - PAD * 2)[0] ?? title, PAD, 78)
   ctx.font = font(28, 500)
-  ctx.fillText(`${country?.name ?? trip.countryCode} · ${trip.days.length}일 일정`, PAD, 146)
+  ctx.fillText(`${country?.name ?? trip.countryCode} · ${t('{n}일 일정', { n: trip.days.length })}`, PAD, 146)
 
   // 일차별 카드
   let y = headerHeight
@@ -163,9 +165,9 @@ export async function renderTripImage(trip: SavedTrip, country: Country | undefi
 
   ctx.fillStyle = COLORS.muted
   ctx.font = font(22)
-  ctx.fillText('여행 동선 플래너로 만든 일정', PAD, height - footerHeight + 24)
+  ctx.fillText(`PLAN:J · ${t('계획하는 순간, 여행이 시작된다')}`, PAD, height - footerHeight + 24)
 
   return new Promise((resolve, reject) =>
-    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('이미지를 만들지 못했습니다.'))), 'image/png'),
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error(t('이미지를 만들지 못했습니다.')))), 'image/png'),
   )
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { t } from '../i18n'
 import { pathStyles } from '../lib/travel'
 import { GOOGLE_MAP_ID, loadMaps, loadMarker } from '../services/google'
 import { isAnchorMarker, type MapViewProps } from './mapTypes'
@@ -66,7 +67,7 @@ export default function GoogleMapView({
         setReady(true)
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Google 지도를 불러오지 못했습니다.')
+        if (!cancelled) setError(err instanceof Error ? err.message : t('Google 지도를 불러오지 못했습니다.'))
       })
     return () => {
       cancelled = true

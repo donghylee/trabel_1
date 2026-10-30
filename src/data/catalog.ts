@@ -1,8 +1,10 @@
-import type { Country, Place } from '../types'
+import { getLang, t, translateKnown, type Lang } from '../i18n'
+import type { Country, Place, PlaceCategory } from '../types'
 import { moreCountries } from './moreCountries'
+import { countryNamesEn, placeNamesEn, regionNamesEn } from './namesEn'
 
 // API 키를 받기 전까지 사용할 가짜 국가·지역·장소 데이터
-export const countries: Country[] = [
+const baseCountries: Country[] = [
   {
     code: 'KR',
     name: '대한민국',
@@ -79,7 +81,7 @@ export const countries: Country[] = [
   ...moreCountries,
 ]
 
-export const categoryLabels = {
+const categoryLabels: Record<PlaceCategory, string> = {
   sight: '명소',
   museum: '박물관',
   shopping: '쇼핑·거리',
@@ -87,10 +89,60 @@ export const categoryLabels = {
   food: '음식점',
   cafe: '카페',
   lodging: '숙소',
-} as const
+}
+
+export function categoryLabel(category: PlaceCategory): string {
+  return t(categoryLabels[category])
+}
+
+// 언어별로 이름을 바꾼 나라 목록 (언어마다 한 번만 만들어 같은 객체를 돌려줌)
+const localized: Partial<Record<Lang, Country[]>> = {}
+
+/** 지금 언어의 나라 목록 */
+export function getCountries(): Country[] {
+  const lang = getLang()
+  if (lang === 'ko') return baseCountries
+  return (localized[lang] ??= baseCountries.map((c) => ({
+    ...c,
+    name: countryNamesEn[c.code] ?? c.name,
+    regions: c.regions.map((r) => ({
+      ...r,
+      name: regionNamesEn[r.id] ?? r.name,
+      places: r.places.map((p) => ({ ...p, name: placeNamesEn[p.id] ?? p.name })),
+    })),
+  })))
+}
+
+/**
+ * 여행 이름(대제목)을 지금 언어로.
+ * 저장할 때 앱이 넣어 준 기본 이름("일본 여행" / "Japan trip")과 예시 게시물 제목은 언어를 따라가고,
+ * 사용자가 직접 지은 이름은 쓴 그대로 둔다.
+ */
+export function tripTitle(trip: { name: string; countryCode: string }): string {
+  const base = baseCountries.find((c) => c.code === trip.countryCode)
+  if (base) {
+    const defaults = [`${base.name} 여행`, `${countryNamesEn[base.code] ?? base.name} trip`]
+    if (defaults.includes(trip.name.trim())) {
+      return t('{country} 여행', { country: findCountry(base.code)?.name ?? base.name })
+    }
+  }
+  return translateKnown(trip.name)
+}
+
+/** 저장해 둔 기본 장소 이름(한국어)을 지금 언어로 — 기본 목록에 없는 이름은 그대로 */
+export function localizePlaceName(name: string): string {
+  if (getLang() === 'ko') return name
+  for (const c of baseCountries) {
+    for (const r of c.regions) {
+      const place = r.places.find((p) => p.name === name)
+      if (place) return placeNamesEn[place.id] ?? name
+    }
+  }
+  return name
+}
 
 export function findCountry(code: string | null): Country | undefined {
-  return countries.find((c) => c.code === code)
+  return getCountries().find((c) => c.code === code)
 }
 
 /** 나라의 모든 기본 추천 장소 */

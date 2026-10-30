@@ -1,5 +1,6 @@
 import { Loader } from '@googlemaps/js-api-loader'
 import { config } from '../config'
+import { apiLanguage, t } from '../i18n'
 import type { Country, LatLng, PlaceCategory } from '../types'
 
 // Google Maps Platform 연결.
@@ -16,8 +17,9 @@ export const GOOGLE_MAP_ID = config.googleMapId || 'DEMO_MAP_ID'
 let loader: Loader | null = null
 
 function getLoader(): Loader {
-  if (!API_KEY) throw new Error('Google Maps API 키가 없습니다 (.env.local 확인)')
-  loader ??= new Loader({ apiKey: API_KEY, version: 'weekly', language: 'ko' })
+  if (!API_KEY) throw new Error(t('Google Maps API 키가 없습니다 (.env.local 확인)'))
+  // 지도 글자 언어는 처음 불러올 때 정해짐 (언어를 바꾼 뒤 새로고침하면 지도 글자도 바뀜)
+  loader ??= new Loader({ apiKey: API_KEY, version: 'weekly', language: apiLanguage() })
   return loader
 }
 

@@ -1,3 +1,4 @@
+import { getLang } from '../i18n'
 import type { Currency } from '../types'
 
 // 나라별 돈 단위와, 실제 요금을 못 받을 때 쓰는 대략적인 요금표.
@@ -32,9 +33,12 @@ export const currencies: Record<Currency, CurrencyInfo> = {
 
 export function formatMoney(amount: number, currency: Currency): string {
   const info = currencies[currency]
-  const text = amount.toLocaleString('ko-KR', {
+  const english = getLang() === 'en'
+  const text = amount.toLocaleString(english ? 'en-US' : 'ko-KR', {
     minimumFractionDigits: 0,
     maximumFractionDigits: info.decimals,
   })
+  // 영어 화면에서는 '원' 대신 ₩
+  if (english && currency === 'KRW') return `₩${text}`
   return `${info.prefix ?? ''}${text}${info.suffix ?? ''}`
 }

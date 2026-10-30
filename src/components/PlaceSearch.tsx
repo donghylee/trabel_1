@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { categoryLabels } from '../data/catalog'
+import { categoryLabel } from '../data/catalog'
+import { t } from '../i18n'
 import { searchPlaces } from '../services/geocode'
 import type { Country, LatLng, Place } from '../types'
 
@@ -41,8 +42,8 @@ export default function PlaceSearch({
   placeholder,
   isPicked,
   onPick,
-  pickLabel = '+ 추가',
-  pickedLabel = '추가됨',
+  pickLabel = t('+ 추가'),
+  pickedLabel = t('추가됨'),
   clearOnPick = false,
   autoFocus = false,
   onPreview,
@@ -68,7 +69,7 @@ export default function PlaceSearch({
         })
         .catch((err: unknown) => {
           if (controller.signal.aborted) return
-          setSearch({ status: 'error', message: err instanceof Error ? err.message : '검색 중 오류가 났습니다.' })
+          setSearch({ status: 'error', message: err instanceof Error ? err.message : t('검색 중 오류가 났습니다.') })
         })
     }, SEARCH_DELAY_MS)
     return () => {
@@ -91,10 +92,12 @@ export default function PlaceSearch({
       />
       {search.status !== 'idle' && (
         <div className="search-results">
-          {search.status === 'loading' && <p className="hint">검색 중…</p>}
+          {search.status === 'loading' && <p className="hint">{t('검색 중…')}</p>}
           {search.status === 'error' && <p className="hint error">{search.message}</p>}
           {search.status === 'done' && search.results.length === 0 && (
-            <p className="hint">"{query.trim()}"에 해당하는 장소를 {country.name}에서 찾지 못했습니다.</p>
+            <p className="hint">
+              {t('"{query}"에 해당하는 장소를 {country}에서 찾지 못했습니다.', { query: query.trim(), country: country.name })}
+            </p>
           )}
           {search.status === 'done' && search.results.length > 0 && (
             <ul>
@@ -109,7 +112,7 @@ export default function PlaceSearch({
                       onClick={() => onPreview?.(place)}
                     >
                       <span className="place-option-name">{place.name}</span>
-                      <span className="tag">{categoryLabels[place.category]}</span>
+                      <span className="tag">{categoryLabel(place.category)}</span>
                       {place.address && <div className="hint">{place.address}</div>}
                     </button>
                     <button

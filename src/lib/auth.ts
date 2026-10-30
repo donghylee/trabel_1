@@ -2,6 +2,8 @@
 // 서버를 붙이면 이 파일의 함수 안쪽만 API 호출로 바꾸면 된다.
 // 비밀번호는 그대로 두지 않고 SHA-256 해시로만 저장한다.
 
+import { t } from '../i18n'
+
 const USERS_KEY = 'trip-route-planner:users:v1'
 const SESSION_KEY = 'trip-route-planner:session:v1'
 
@@ -39,8 +41,8 @@ export function isNicknameTaken(nickname: string, exceptId?: string): boolean {
 
 /** 가입에 성공하면 null, 실패하면 이유 */
 export async function signUp(input: { id: string; nickname: string; email: string; password: string }): Promise<string | null> {
-  if (isIdTaken(input.id)) return '이미 사용 중인 ID입니다.'
-  if (isNicknameTaken(input.nickname)) return '이미 사용 중인 닉네임입니다.'
+  if (isIdTaken(input.id)) return t('이미 사용 중인 ID입니다.')
+  if (isNicknameTaken(input.nickname)) return t('이미 사용 중인 닉네임입니다.')
   const user: User = {
     id: input.id.trim(),
     nickname: input.nickname.trim(),
@@ -52,7 +54,7 @@ export async function signUp(input: { id: string; nickname: string; email: strin
     localStorage.setItem(USERS_KEY, JSON.stringify([...loadUsers(), user]))
     return null
   } catch {
-    return '이 브라우저에 저장하지 못했습니다. 저장 공간이나 사생활 보호 설정을 확인해 주세요.'
+    return t('이 브라우저에 저장하지 못했습니다. 저장 공간이나 사생활 보호 설정을 확인해 주세요.')
   }
 }
 

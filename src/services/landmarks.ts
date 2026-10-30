@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { distanceMeters } from '../lib/travel'
 import type { LatLng, Place, PlaceCategory } from '../types'
 import { defaultStay } from '../lib/place'
@@ -73,11 +74,11 @@ async function fetchFamousNearby(point: LatLng): Promise<Place[]> {
   for (let attempt = 0; attempt < 2 && !data?.query; attempt++) {
     if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS))
     const res = await fetch(`${ENDPOINT}?${params}`, { signal: AbortSignal.timeout(TIMEOUT_MS) })
-    if (!res.ok) throw new Error(`주변 장소를 불러오지 못했습니다 (${res.status})`)
+    if (!res.ok) throw new Error(t('주변 장소를 불러오지 못했습니다 ({status})', { status: res.status }))
     data = await res.json()
   }
   // 일시적인 오류는 빈 결과가 아니라 실패로 처리 (캐시에 남지 않게)
-  if (data?.error) throw new Error('주변 장소 검색이 잠시 바쁩니다. 다른 곳을 눌렀다가 다시 시도해 주세요.')
+  if (data?.error) throw new Error(t('주변 장소 검색이 잠시 바쁩니다. 다른 곳을 눌렀다가 다시 시도해 주세요.'))
 
   const candidates = Object.values(data?.query?.pages ?? {}).flatMap((page) => {
     const coord = page.coordinates?.[0]

@@ -1,6 +1,8 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useDragReorder } from '../hooks/useDragReorder'
 import { useNearby } from '../hooks/useNearby'
+import { t } from '../i18n'
+import { googleMapsUrl, openInNewWindow } from '../lib/place'
 import { nearbyKindIcons, rankNearby } from '../lib/recommend'
 import { mealLabels } from '../lib/schedule'
 import { STAY_OPTIONS, formatDuration, toHHMM, toMinutes } from '../lib/time'
@@ -42,9 +44,10 @@ type Props = {
 
 export type ScheduleEditor = {
   onMove: (placeId: string, direction: -1 | 1) => void
-  /** 끌어서 놓았을 때 새 방문 순서와 음식점(주황색 원) 자리 */
+  /** 끌어서 놓았을 때 새 방문 순서와 음식점(빨간 원) 자리 */
   onReorder: (order: string[], mealSlots: MealSlots) => void
   onChangeStay: (placeId: string, minutes: number) => void
+  onRemovePlace: (placeId: string) => void
   onChangeTimes: (startTime: string, endTime: string) => void
   onResetOrder: () => void
   onApply: (adjustment: Adjustment) => void
@@ -59,11 +62,11 @@ const MEAL_OPTION_COUNT = 3
 export type RouteStatus = { enabled: boolean; loading: boolean; note: string }
 
 function optionText(option: TravelOption, country: Country, showSource: boolean): string {
-  const parts = [`${modeLabels[option.mode]} ${formatDuration(option.minutes)}`]
-  if (option.fare) parts.push(formatFare(option.fare, country.currency) + (option.fareEstimated ? '(추정)' : ''))
-  if (option.transfers) parts.push(`환승 ${option.transfers}회`)
+  const parts = [`${t(modeLabels[option.mode])} ${formatDuration(option.minutes)}`]
+  if (option.fare) parts.push(formatFare(option.fare, country.currency) + (option.fareEstimated ? t('(추정)') : ''))
+  if (option.transfers) parts.push(t('환승 {n}회', { n: option.transfers }))
   // 실제 길찾기를 쓰는 중이면 거리로 계산한 값에만 "추정"을 붙여 구분
-  if (showSource && option.estimated) parts.push('추정')
+  if (showSource && option.estimated) parts.push(t('추정'))
   return parts.join(' · ')
 }
 
@@ -77,7 +80,7 @@ function MoveRow({ leg, country, showSource }: { leg: Leg; country: Country; sho
         <span>
           {optionText(best, country, showSource)} · {formatDistance(best.meters)}
         </span>
-        <span className="badge">추천</span>
+        <span className="badge">{t('추천')}</span>
         {showSource && best.source && <span className="source-tag">{best.source}</span>}
       </div>
       {others.length > 0 && (
@@ -116,11 +119,11 @@ function TimeRangeEditor({
 
   return (
     <div className="time-edit">
-      <span className="time-edit-label">활동 시간</span>
-      <input type="time" aria-label="출발 시각" value={start} onChange={(e) => update(e.target.value, end)} />
+      <span className="time-edit-label">{t('활동 시간')}</span>
+      <input type="time" aria-label={t('출발 시각')} value={start} onChange={(e) => update(e.target.value, end)} />
       <span className="muted">~</span>
-      <input type="time" aria-label="종료 시각" value={end} onChange={(e) => update(start, e.target.value)} />
-      {!valid && <span className="hint error">종료 시각은 출발 시각보다 늦어야 합니다.</span>}
+      <input type="time" aria-label={t('종료 시각')} value={end} onChange={(e) => update(start, e.target.value)} />
+      {!valid && <span className="hint error">{t('종료 시각은 출발 시각보다 늦어야 합니다.')}</span>}
     </div>
   )
 }
@@ -236,14 +239,14 @@ export default function ScheduleView({
         })
       } else if (item.kind === 'lodging') {
         const existing = markers.find((m) => m.id === item.place.id)
-        const time = `${item.role === 'depart' ? '출발' : '도착'} ${toHHMM(item.start)}`
+        const time = t(item.role === 'depart' ? '출발 {time}' : '도착 {time}', { time: toHHMM(item.start) })
         if (existing) {
           existing.subtitle += ` · ${time}`
         } else {
           markers.push({
             id: item.place.id,
             label: '🏨',
-            title: `숙소 · ${item.place.name}`,
+            title: `${t('숙소')} · ${item.place.name}`,
             subtitle: time,
             position: item.place.location,
             variant: 'lodging',
@@ -252,11 +255,11 @@ export default function ScheduleView({
       } else {
         const chosen = mealChoices[item.meal]
         if (chosen && item.restaurant) {
-          // 고른 음식점은 경로 지점 — 번호 없이 주황색 원으로 표시
+          // 고른 음식점은 경로 지점 — 번호 없이 빨간 원으로 표시
           markers.push({
             id: chosen.id,
             label: '',
-            title: `${mealLabels[item.meal]} · ${chosen.name}`,
+            title: `${t(mealLabels[item.meal])} · ${chosen.name}`,
             subtitle: `⭐ ${chosen.rating.toFixed(1)} (${chosen.reviewCount.toLocaleString()}) · ${toHHMM(item.start)} ~ ${toHHMM(item.end)}`,
             position: item.restaurant.location,
             variant: 'meal',
@@ -270,7 +273,7 @@ export default function ScheduleView({
         id: rec.poi.id,
         label: nearbyKindIcons[rec.poi.kind],
         title: rec.poi.name,
-        subtitle: `⭐ ${rec.poi.rating.toFixed(1)} (${rec.poi.reviewCount.toLocaleString()}) · 도보 ${rec.walkMinutes}분`,
+        subtitle: `⭐ ${rec.poi.rating.toFixed(1)} (${rec.poi.reviewCount.toLocaleString()}) · ${t('도보 {n}분', { n: rec.walkMinutes })}`,
         position: rec.poi.location,
         variant: 'poi',
       })
@@ -293,11 +296,11 @@ export default function ScheduleView({
   function adjustmentText(a: Adjustment): string {
     switch (a.kind) {
       case 'reduceStay':
-        return `${placeName(a.placeId)} 머무는 시간을 ${formatDuration(a.stayMinutes)}으로 줄이기`
+        return t('{name} 머무는 시간을 {d}으로 줄이기', { name: placeName(a.placeId), d: formatDuration(a.stayMinutes) })
       case 'remove':
-        return `${placeName(a.placeId)} 일정에서 빼기`
+        return t('{name} 일정에서 빼기', { name: placeName(a.placeId) })
       case 'extendEnd':
-        return `종료 시각을 ${a.endTime}까지 늦추기`
+        return t('종료 시각을 {time}까지 늦추기', { time: a.endTime })
     }
   }
 
@@ -322,7 +325,7 @@ export default function ScheduleView({
                     borderTopStyle: pathStyles[mode].dashArray ? 'dashed' : 'solid',
                   }}
                 />
-                {modeLabels[mode]}
+                {t(modeLabels[mode])}
               </span>
             ))}
           </div>
@@ -340,21 +343,21 @@ export default function ScheduleView({
 
         <dl className="stats">
           <div>
-            <dt>일정</dt>
+            <dt>{t('일정')}</dt>
             <dd>
               {toHHMM(schedule.startAt)} ~ {toHHMM(schedule.endAt)}
             </dd>
           </div>
           <div>
-            <dt>총 이동</dt>
+            <dt>{t('총 이동')}</dt>
             <dd>{formatDuration(schedule.totalMoveMinutes)}</dd>
           </div>
           <div>
-            <dt>걷는 거리</dt>
+            <dt>{t('걷는 거리')}</dt>
             <dd>{formatDistance(schedule.totalWalkMeters)}</dd>
           </div>
           <div>
-            <dt>{spare >= 0 ? '남는 시간' : '초과'}</dt>
+            <dt>{spare >= 0 ? t('남는 시간') : t('초과')}</dt>
             <dd className={spare < 0 ? 'error' : ''}>{formatDuration(Math.abs(spare))}</dd>
           </div>
         </dl>
@@ -370,8 +373,9 @@ export default function ScheduleView({
         {schedule.overMinutes > 0 && (
           <div className="warning">
             <p>
-              ⚠️ 종료 시각({toHHMM(schedule.limitAt)})보다 <strong>{formatDuration(schedule.overMinutes)}</strong> 늦게
-              끝납니다.{editor && ' 아래 중 하나를 고르면 바로 다시 계산합니다.'}
+              ⚠️ {t('종료 시각({time})보다', { time: toHHMM(schedule.limitAt) })}{' '}
+              <strong>{formatDuration(schedule.overMinutes)}</strong> {t('늦게 끝납니다.')}
+              {editor && ` ${t('아래 중 하나를 고르면 바로 다시 계산합니다.')}`}
             </p>
             {editor && (
               <div className="adjustments">
@@ -388,12 +392,12 @@ export default function ScheduleView({
         {editor && (
           <div className="order-bar">
             <span className="hint">
-              {isCustomOrder ? '직접 바꾼 순서입니다.' : '이동시간이 가장 짧은 순서로 정했습니다.'} 장소나 주황색 원을
-              꾹 눌러 끌면 순서를 바꿀 수 있어요.
+              {isCustomOrder ? t('직접 바꾼 순서입니다.') : t('이동시간이 가장 짧은 순서로 정했습니다.')}{' '}
+              {t('장소나 빨간 원을 꾹 눌러 끌면 순서를 바꿀 수 있어요.')}
             </span>
             {isCustomOrder && (
               <button type="button" className="btn small" onClick={editor.onResetOrder}>
-                최적 순서로 되돌리기
+                {t('최적 순서로 되돌리기')}
               </button>
             )}
           </div>
@@ -437,7 +441,7 @@ export default function ScheduleView({
                   )}
                   <span className="stop-time">{toHHMM(item.start)}</span>
                   {item.restaurant ? (
-                    <span className="stop-marker meal-stop" aria-label="식사 장소" />
+                    <span className="stop-marker meal-stop" aria-label={t('식사 장소')} />
                   ) : (
                     <span className="stop-marker">🍽️</span>
                   )}
@@ -446,7 +450,7 @@ export default function ScheduleView({
                       <>
                         <button type="button" className="as-link" onClick={() => focusOnMap(chosen.id)}>
                           <div className="stop-name">
-                            {mealLabels[item.meal]} · {chosen.name}
+                            {t(mealLabels[item.meal])} · {chosen.name}
                           </div>
                         </button>
                         <div className="hint">
@@ -458,33 +462,43 @@ export default function ScheduleView({
                               className="link-btn"
                               onClick={() => editor.onChooseMeal(item.meal, null)}
                             >
-                              다른 곳 고르기
+                              {t('다른 곳 고르기')}
                             </button>
                           )}
                         </div>
                       </>
                     ) : (
                       <>
-                        <div className="stop-name">{mealLabels[item.meal]} 식사</div>
+                        <div className="stop-name">{t('{meal} 식사', { meal: t(mealLabels[item.meal]) })}</div>
                         <div className="hint">
-                          {item.near.name} 근처 · {formatDuration(item.end - item.start)}
-                          {editor ? ' · 아래에서 음식점을 골라 주세요' : ' · 음식점 미정'}
+                          {t('{name} 근처', { name: item.near.name })} · {formatDuration(item.end - item.start)}
+                          {' · '}
+                          {editor ? t('아래에서 음식점을 골라 주세요') : t('음식점 미정')}
                         </div>
                         {!editor ? null : loading ? (
-                          <p className="hint">음식점을 찾는 중…</p>
+                          <p className="hint">{t('음식점을 찾는 중…')}</p>
                         ) : (
                           <ul className="meal-options">
                             {options.map((rec) => (
                               <li key={rec.poi.id}>
-                                <span className="meal-option-name">{rec.poi.name}</span>
+                                <a
+                                  className="meal-option-name gmaps-name"
+                                  href={googleMapsUrl(rec.poi)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={openInNewWindow}
+                                  title={t('Google 지도에서 열기')}
+                                >
+                                  {rec.poi.name} ↗
+                                </a>
                                 <Stars rating={rec.poi.rating} reviewCount={rec.poi.reviewCount} />
-                                <span className="muted">도보 {rec.walkMinutes}분</span>
+                                <span className="muted">{t('도보 {n}분', { n: rec.walkMinutes })}</span>
                                 <button
                                   type="button"
                                   className="btn small"
                                   onClick={() => editor.onChooseMeal(item.meal, rec.poi)}
                                 >
-                                  선택
+                                  {t('선택')}
                                 </button>
                               </li>
                             ))}
@@ -508,7 +522,7 @@ export default function ScheduleView({
                   <span className="stop-time">{toHHMM(item.start)}</span>
                   <span className="stop-marker">🏨</span>
                   <button type="button" className="stop-body as-link" onClick={() => focusOnMap(item.place.id)}>
-                    <div className="stop-name">{item.role === 'depart' ? '숙소에서 출발' : '숙소 도착'}</div>
+                    <div className="stop-name">{item.role === 'depart' ? t('숙소에서 출발') : t('숙소 도착')}</div>
                     <div className="hint">{item.place.name}</div>
                   </button>
                 </li>
@@ -537,13 +551,13 @@ export default function ScheduleView({
                   <div className="stop-name">{item.place.name}</div>
                   <div className="hint">
                     {toHHMM(item.start)} ~ {toHHMM(item.end)}
-                    {!editor && ` · ${formatDuration(stayMinutes)}`} · 지도에서 보기
+                    {!editor && ` · ${formatDuration(stayMinutes)}`} · {t('지도에서 보기')}
                   </div>
                 </button>
                 {editor && (
                   <select
                     className="stay-inline"
-                    aria-label={`${item.place.name} 머무를 시간`}
+                    aria-label={t('{name} 머무를 시간', { name: item.place.name })}
                     value={stayMinutes}
                     onChange={(e) => editor.onChangeStay(id, Number(e.target.value))}
                   >
@@ -558,7 +572,7 @@ export default function ScheduleView({
                 <div className="reorder">
                   <button
                     type="button"
-                    aria-label="앞으로"
+                    aria-label={t('앞으로')}
                     disabled={item.order === 1}
                     onClick={() => editor.onMove(item.place.id, -1)}
                   >
@@ -566,13 +580,25 @@ export default function ScheduleView({
                   </button>
                   <button
                     type="button"
-                    aria-label="뒤로"
+                    aria-label={t('뒤로')}
                     disabled={item.order === last}
                     onClick={() => editor.onMove(item.place.id, 1)}
                   >
                     ▼
                   </button>
                 </div>
+                )}
+                {editor && (
+                  <button
+                    type="button"
+                    className="remove-btn stop-remove"
+                    aria-label={t('{name} 빼기', { name: item.place.name })}
+                    title={last > 1 ? t('일정에서 빼기') : t('장소가 하나뿐이라 뺄 수 없습니다')}
+                    disabled={last <= 1}
+                    onClick={() => editor.onRemovePlace(item.place.id)}
+                  >
+                    ✕
+                  </button>
                 )}
               </li>
             )
@@ -584,8 +610,8 @@ export default function ScheduleView({
           </div>
         )}
         <p className="hint">
-          {routeStatus?.loading ? '🔄 실제 경로를 불러오는 중… ' : ''}
-          {routeStatus?.note ?? '이동시간은 거리로 계산한 추정치이고, 지도 경로선은 직선입니다.'}
+          {routeStatus?.loading ? `🔄 ${t('실제 경로를 불러오는 중…')} ` : ''}
+          {routeStatus?.note ?? t('이동시간은 거리로 계산한 추정치이고, 지도 경로선은 직선입니다.')}
         </p>
 
         <NearbyPanel

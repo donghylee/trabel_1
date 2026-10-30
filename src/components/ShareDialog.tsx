@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { tripTitle } from '../data/catalog'
+import { t } from '../i18n'
 import { renderTripImage } from '../lib/shareImage'
 import type { Country, SavedTrip } from '../types'
 
@@ -28,7 +30,8 @@ export default function ShareDialog({ trip, country, onClose }: Props) {
     }
   }, [trip, country])
 
-  const fileName = `${trip.name.replace(/[\\/:*?"<>|]/g, '_')}_일정.png`
+  const title = tripTitle(trip)
+  const fileName = `${title.replace(/[\\/:*?"<>|]/g, '_')}_${t('일정')}.png`
   const file = image && new File([image.blob], fileName, { type: 'image/png' })
   // 휴대폰 등 파일 공유를 지원하는 브라우저에서만 [공유하기]
   const canShare = !!file && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })
@@ -36,9 +39,9 @@ export default function ShareDialog({ trip, country, onClose }: Props) {
   async function share() {
     if (!file) return
     try {
-      await navigator.share({ files: [file], title: trip.name, text: `${trip.name} · ${countryName} ${trip.days.length}일 일정` })
+      await navigator.share({ files: [file], title, text: `${title} · ${countryName} ${t('{n}일 일정', { n: trip.days.length })}` })
     } catch (e) {
-      if ((e as Error).name !== 'AbortError') setMessage('공유하지 못했습니다. 이미지 저장을 이용해 주세요.')
+      if ((e as Error).name !== 'AbortError') setMessage(t('공유하지 못했습니다. 이미지 저장을 이용해 주세요.'))
     }
   }
 
@@ -48,16 +51,16 @@ export default function ShareDialog({ trip, country, onClose }: Props) {
     a.href = image.url
     a.download = fileName
     a.click()
-    setMessage('이미지를 저장했습니다.')
+    setMessage(t('이미지를 저장했습니다.'))
   }
 
   async function copy() {
     if (!image) return
     try {
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': image.blob })])
-      setMessage('이미지를 복사했습니다. 메신저 등에 붙여 넣으세요.')
+      setMessage(t('이미지를 복사했습니다. 메신저 등에 붙여 넣으세요.'))
     } catch {
-      setMessage('이 브라우저에서는 이미지 복사를 할 수 없습니다. 이미지 저장을 이용해 주세요.')
+      setMessage(t('이 브라우저에서는 이미지 복사를 할 수 없습니다. 이미지 저장을 이용해 주세요.'))
     }
   }
 
@@ -71,32 +74,32 @@ export default function ShareDialog({ trip, country, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id="share-dialog-title" className="wizard-title">
-          일정 공유
+          {t('일정 공유')}
         </h2>
         <div className="share-preview">
           {image ? (
-            <img src={image.url} alt={`${trip.name} 일정 요약`} />
+            <img src={image.url} alt={t('{name} 일정 요약', { name: title })} />
           ) : failed ? (
-            <p className="hint error">이미지를 만들지 못했습니다.</p>
+            <p className="hint error">{t('이미지를 만들지 못했습니다.')}</p>
           ) : (
-            <p className="hint">이미지 만드는 중…</p>
+            <p className="hint">{t('이미지 만드는 중…')}</p>
           )}
         </div>
         {message && <p className="hint">{message}</p>}
         <div className="share-actions">
           {canShare && (
             <button type="button" className="btn primary" onClick={share}>
-              공유하기
+              {t('공유하기')}
             </button>
           )}
           <button type="button" className={`btn ${canShare ? '' : 'primary'}`} disabled={!image} onClick={download}>
-            이미지 저장
+            {t('이미지 저장')}
           </button>
           <button type="button" className="btn" disabled={!image} onClick={copy}>
-            이미지 복사
+            {t('이미지 복사')}
           </button>
           <button type="button" className="btn share-close" onClick={onClose}>
-            닫기
+            {t('닫기')}
           </button>
         </div>
       </div>

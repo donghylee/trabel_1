@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { findCountry } from '../data/catalog'
-import { mockFeed, type FeedComment, type FeedPost } from '../data/mockFeed'
+import { findCountry, tripTitle } from '../data/catalog'
+import { getMockFeed, type FeedComment, type FeedPost } from '../data/mockFeed'
+import { t } from '../i18n'
 import type { SessionUser } from '../lib/auth'
 import { loadPosts, savePosts, type MyPost } from '../lib/posts'
 import { renderTripImage } from '../lib/shareImage'
@@ -19,7 +20,7 @@ type Props = {
   onToggleBookmark: (post: FeedPost) => void
 }
 
-/** 여행 일정을 공유하는 피드 — 직접 올린 글(이 브라우저에 저장) + 예시 게시물(mockFeed) */
+/** 여행 일정을 공유하는 피드 — 직접 올린 글(이 브라우저에 저장) + 예시 게시물(getMockFeed) */
 export default function CommunityPage({
   user,
   trips,
@@ -35,13 +36,13 @@ export default function CommunityPage({
   const [loginNeeded, setLoginNeeded] = useState(false)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
 
-  const allPosts: FeedPost[] = [...myPosts, ...mockFeed]
+  const allPosts: FeedPost[] = [...myPosts, ...getMockFeed()]
   const countries = [...new Set(allPosts.map((p) => p.trip.countryCode))]
   const posts = filter ? allPosts.filter((p) => p.trip.countryCode === filter) : allPosts
 
   function changePosts(next: MyPost[]) {
     setMyPosts(next)
-    if (!savePosts(next)) setNotice({ ok: false, text: '이 브라우저에 저장하지 못했습니다. 새로고침하면 사라질 수 있습니다.' })
+    if (!savePosts(next)) setNotice({ ok: false, text: t('이 브라우저에 저장하지 못했습니다. 새로고침하면 사라질 수 있습니다.') })
   }
 
   function publish({
@@ -55,7 +56,7 @@ export default function CommunityPage({
     tags: string[]
     photos: string[]
   }): string | null {
-    if (!user) return '로그인 후 사용 가능한 기능입니다.'
+    if (!user) return t('로그인 후 사용 가능한 기능입니다.')
     const now = new Date().toISOString()
     const post: MyPost = {
       id: `my-${Date.now().toString(36)}`,
@@ -72,21 +73,21 @@ export default function CommunityPage({
     }
     const next = [post, ...myPosts]
     // 사진이 커서 브라우저 저장 공간을 넘으면 올리지 않고 글쓰기 창에서 안내
-    if (!savePosts(next)) return '저장 공간이 부족합니다. 사진 수를 줄이거나 예전 글을 지운 뒤 다시 올려 주세요.'
+    if (!savePosts(next)) return t('저장 공간이 부족합니다. 사진 수를 줄이거나 예전 글을 지운 뒤 다시 올려 주세요.')
     setMyPosts(next)
     setWriting(false)
     setFilter(null)
-    setNotice({ ok: true, text: '커뮤니티에 글을 올렸습니다.' })
+    setNotice({ ok: true, text: t('커뮤니티에 글을 올렸습니다.') })
     return null
   }
 
   return (
     <div className="feed">
       <div className="feed-head">
-        <h2 className="wizard-title">커뮤니티</h2>
-        <div className="chips" role="tablist" aria-label="나라별 보기">
+        <h2 className="wizard-title">{t('커뮤니티')}</h2>
+        <div className="chips" role="tablist" aria-label={t('나라별 보기')}>
           <button type="button" className={`chip ${filter === null ? 'active' : ''}`} onClick={() => setFilter(null)}>
-            전체
+            {t('전체')}
           </button>
           {countries.map((code) => (
             <button
@@ -110,20 +111,20 @@ export default function CommunityPage({
               setWriting(true)
             }}
           >
-            글쓰기
+            {t('글쓰기')}
           </button>
         </div>
       </div>
       {loginNeeded && !user && (
         <p className="notice error-notice">
-          로그인 후 사용 가능한 기능입니다.{' '}
+          {t('로그인 후 사용 가능한 기능입니다.')}{' '}
           <button type="button" className="link-btn" onClick={onRequireLogin}>
-            로그인하기
+            {t('로그인하기')}
           </button>
         </p>
       )}
       {notice && <p className={`notice ${notice.ok ? 'success' : 'error-notice'}`}>{notice.text}</p>}
-      <p className="notice feed-notice">지금은 예시 게시물과 이 브라우저에서 올린 글만 보입니다. 서버를 연결하면 다른 사람이 올린 여행도 나옵니다.</p>
+      <p className="notice feed-notice">{t('지금은 예시 게시물과 이 브라우저에서 올린 글만 보입니다. 서버를 연결하면 다른 사람이 올린 여행도 나옵니다.')}</p>
       {posts.map((post) => (
         <PostCard
           key={post.id}
@@ -136,9 +137,9 @@ export default function CommunityPage({
           onDelete={
             user && 'authorId' in post && post.authorId === user.id
               ? () => {
-                  if (window.confirm('이 글을 삭제할까요?')) {
+                  if (window.confirm(t('이 글을 삭제할까요?'))) {
                     changePosts(myPosts.filter((p) => p.id !== post.id))
-                    setNotice({ ok: true, text: '글을 삭제했습니다.' })
+                    setNotice({ ok: true, text: t('글을 삭제했습니다.') })
                   }
                 }
               : undefined
@@ -157,12 +158,12 @@ export default function CommunityPage({
 
 function timeAgo(iso: string): string {
   const minutes = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000))
-  if (minutes < 1) return '방금'
-  if (minutes < 60) return `${minutes}분 전`
-  if (minutes < 60 * 24) return `${Math.floor(minutes / 60)}시간 전`
-  if (minutes < 60 * 24 * 7) return `${Math.floor(minutes / 60 / 24)}일 전`
+  if (minutes < 1) return t('방금')
+  if (minutes < 60) return t('{n}분 전', { n: minutes })
+  if (minutes < 60 * 24) return t('{n}시간 전', { n: Math.floor(minutes / 60) })
+  if (minutes < 60 * 24 * 7) return t('{n}일 전', { n: Math.floor(minutes / 60 / 24) })
   const d = new Date(iso)
-  return `${d.getMonth() + 1}월 ${d.getDate()}일`
+  return t('{month}월 {day}일', { month: d.getMonth() + 1, day: d.getDate() })
 }
 
 /** 일정 요약 이미지 (공유 이미지와 같은 그림) */
@@ -194,15 +195,15 @@ function TripImage({ trip, country }: { trip: SavedTrip; country: Country | unde
       {url ? (
         <img
           src={url}
-          alt={`${trip.name} 일정`}
+          alt={t('{name} 일정', { name: tripTitle(trip) })}
           onLoad={(e) => setTall(e.currentTarget.naturalHeight / e.currentTarget.naturalWidth > 5 / 4)}
         />
       ) : (
-        <div className="post-image-loading hint">일정 불러오는 중…</div>
+        <div className="post-image-loading hint">{t('일정 불러오는 중…')}</div>
       )}
       {tall && (
         <button type="button" className="post-image-toggle" onClick={() => setExpanded(!expanded)}>
-          {expanded ? '접기' : '전체 일정 보기'}
+          {expanded ? t('접기') : t('전체 일정 보기')}
         </button>
       )}
     </div>
@@ -233,19 +234,19 @@ function PostMedia({ trip, country, photos }: { trip: SavedTrip; country: Countr
         <TripImage trip={trip} country={country} />
       ) : (
         <div className="post-photo">
-          <img src={photos[index - 1]} alt={`${trip.name} 사진 ${index}`} />
+          <img src={photos[index - 1]} alt={t('{name} 사진 {n}', { name: tripTitle(trip), n: index })} />
         </div>
       )}
       <span className="post-media-count">
         {index + 1}/{count}
       </span>
       {index > 0 && (
-        <button type="button" className="post-media-nav prev" aria-label="이전 사진" onClick={() => go(index - 1)}>
+        <button type="button" className="post-media-nav prev" aria-label={t('이전 사진')} onClick={() => go(index - 1)}>
           ‹
         </button>
       )}
       {index < count - 1 && (
-        <button type="button" className="post-media-nav next" aria-label="다음 사진" onClick={() => go(index + 1)}>
+        <button type="button" className="post-media-nav next" aria-label={t('다음 사진')} onClick={() => go(index + 1)}>
           ›
         </button>
       )}
@@ -261,7 +262,7 @@ function PostMedia({ trip, country, photos }: { trip: SavedTrip; country: Countr
 type MoreItem = { label: string; onSelect: () => void; danger?: boolean }
 
 /** [⋯] 버튼을 누르면 아래로 펼쳐지는 메뉴. 바깥을 누르면 닫힘 */
-function MoreMenu({ items, label = '더보기', small = false }: { items: MoreItem[]; label?: string; small?: boolean }) {
+function MoreMenu({ items, label = t('더보기'), small = false }: { items: MoreItem[]; label?: string; small?: boolean }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -434,7 +435,7 @@ function PostCard({
         <div className="post-author">
           <strong>{post.author.nickname}</strong>
           <span className="hint">
-            {country?.name ?? post.trip.countryCode} · {post.trip.days.length}일 일정
+            {country?.name ?? post.trip.countryCode} · {t('{n}일 일정', { n: post.trip.days.length })}
           </span>
         </div>
         <span className="hint post-time">{timeAgo(post.postedAt)}</span>
@@ -442,9 +443,9 @@ function PostCard({
         {onDelete && (
           <MoreMenu
             items={[
-              { label: '삭제', onSelect: onDelete, danger: true },
-              { label: '공유', onSelect: () => onShare(post.trip) },
-              { label: saved ? '찜 해제' : '찜', onSelect: toggleSave },
+              { label: t('삭제'), onSelect: onDelete, danger: true },
+              { label: t('공유'), onSelect: () => onShare(post.trip) },
+              { label: saved ? t('찜 해제') : t('찜'), onSelect: toggleSave },
             ]}
           />
         )}
@@ -456,24 +457,24 @@ function PostCard({
         <button
           type="button"
           className={`icon-btn ${liked ? 'liked' : ''}`}
-          aria-label={liked ? '좋아요 취소' : '좋아요'}
+          aria-label={liked ? t('좋아요 취소') : t('좋아요')}
           aria-pressed={liked}
           onClick={() => requireLogin(() => setLiked(!liked))}
         >
           {Icon.heart(liked)}
         </button>
-        <button type="button" className="icon-btn" aria-label="댓글 달기" onClick={() => commentRef.current?.focus()}>
+        <button type="button" className="icon-btn" aria-label={t('댓글 달기')} onClick={() => commentRef.current?.focus()}>
           {Icon.comment}
         </button>
-        <button type="button" className="icon-btn" aria-label="공유" onClick={() => onShare(post.trip)}>
+        <button type="button" className="icon-btn" aria-label={t('공유')} onClick={() => onShare(post.trip)}>
           {Icon.share}
         </button>
         <button
           type="button"
           className="icon-btn post-save"
-          aria-label={saved ? '찜 취소' : '찜하기'}
+          aria-label={saved ? t('찜 취소') : t('찜하기')}
           aria-pressed={saved}
-          title={saved ? '찜한 여행에서 빼기' : '마이페이지 찜한 여행에 추가'}
+          title={saved ? t('찜한 여행에서 빼기') : t('마이페이지 찜한 여행에 추가')}
           onClick={toggleSave}
         >
           {Icon.bookmark(saved)}
@@ -482,27 +483,27 @@ function PostCard({
 
       {loginNeeded && !user && (
         <p className="notice error-notice post-login">
-          로그인 후 사용 가능한 기능입니다.{' '}
+          {t('로그인 후 사용 가능한 기능입니다.')}{' '}
           <button type="button" className="link-btn" onClick={onRequireLogin}>
-            로그인하기
+            {t('로그인하기')}
           </button>
         </p>
       )}
 
       {savedNotice && saved && (
-        <p className="notice success post-login">🔖 마이페이지 [찜한 여행]에 추가했습니다.</p>
+        <p className="notice success post-login">{t('🔖 마이페이지 [찜한 여행]에 추가했습니다.')}</p>
       )}
 
       <div className="post-body">
-        <strong>좋아요 {(post.likeCount + (liked ? 1 : 0)).toLocaleString()}개</strong>
+        <strong>{t('좋아요 {n}개', { n: (post.likeCount + (liked ? 1 : 0)).toLocaleString() })}</strong>
         <p className="post-caption">
-          <strong>{post.author.nickname}</strong> <span className="post-trip-name">[{post.trip.name}]</span> {post.caption}
+          <strong>{post.author.nickname}</strong> <span className="post-trip-name">[{tripTitle(post.trip)}]</span> {post.caption}
         </p>
-        <p className="post-tags">{post.tags.map((t) => `#${t}`).join(' ')}</p>
+        <p className="post-tags">{post.tags.map((tag) => `#${tag}`).join(' ')}</p>
 
         {comments.length > 2 && !showAll && (
           <button type="button" className="post-more" onClick={() => setShowAll(true)}>
-            댓글 {comments.length}개 모두 보기
+            {t('댓글 {n}개 모두 보기', { n: comments.length })}
           </button>
         )}
         {visibleComments.length > 0 && (
@@ -516,13 +517,13 @@ function PostCard({
                 {user && c.authorId === user.id && (
                   <MoreMenu
                     small
-                    label="댓글 더보기"
+                    label={t('댓글 더보기')}
                     items={[
                       {
-                        label: '삭제',
+                        label: t('삭제'),
                         danger: true,
                         onSelect: () => {
-                          if (window.confirm('이 댓글을 삭제할까요?')) setComments(comments.filter((x) => x.id !== c.id))
+                          if (window.confirm(t('이 댓글을 삭제할까요?'))) setComments(comments.filter((x) => x.id !== c.id))
                         },
                       },
                     ]}
@@ -539,11 +540,11 @@ function PostCard({
           ref={commentRef}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="댓글 달기…"
-          aria-label="댓글 달기"
+          placeholder={t('댓글 달기…')}
+          aria-label={t('댓글 달기')}
         />
         <button type="submit" className="link-btn post-comment-submit" disabled={!draft.trim()}>
-          게시
+          {t('게시')}
         </button>
       </form>
     </article>

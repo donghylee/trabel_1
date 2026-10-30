@@ -1,5 +1,6 @@
 import { config } from '../config'
 import { decodePolyline } from '../lib/polyline'
+import { apiLanguage, t } from '../i18n'
 import { estimateLeg, modeLabels, recommend, taxiFare, transitFare } from '../lib/travel'
 import type { Country, LatLng, Leg, Place, TravelMode, TravelOption } from '../types'
 import { googleEnabled } from './google'
@@ -41,12 +42,12 @@ export function hasRealRouting(country: Country): boolean {
 /** 시간표 아래에 보여줄 "이동시간을 어디서 가져왔는지" 안내 */
 export function routeNote(country: Country): string {
   if (!hasRealRouting(country)) {
-    return '이동시간은 거리로 계산한 추정치이고, 지도 경로선은 직선입니다. 경로 API 키를 넣으면 실제 경로로 바뀝니다.'
+    return t('이동시간은 거리로 계산한 추정치이고, 지도 경로선은 직선입니다. 경로 API 키를 넣으면 실제 경로로 바뀝니다.')
   }
   const providers = routeProviders(country)
   const modes: TravelMode[] = ['walk', 'transit', 'taxi']
-  const parts = modes.map((mode) => `${modeLabels[mode]} ${providers[mode] ?? '거리 추정'}`)
-  return `이동시간 기준: ${parts.join(' · ')}. "추정"이 붙은 값은 거리로 계산한 값입니다.`
+  const parts = modes.map((mode) => `${t(modeLabels[mode])} ${providers[mode] ?? t('거리 추정')}`)
+  return t('이동시간 기준: {parts}. "추정"이 붙은 값은 거리로 계산한 값입니다.', { parts: parts.join(' · ') })
 }
 
 /** 일정의 출발 시각(자정부터 분)을 "내일 그 시각"의 UTC 시간으로 — 대중교통 시간표 조회용 */
@@ -76,11 +77,11 @@ async function googleRoute(
       origin: { location: { latLng: { latitude: from.lat, longitude: from.lng } } },
       destination: { location: { latLng: { latitude: to.lat, longitude: to.lng } } },
       travelMode: mode,
-      languageCode: 'ko',
+      languageCode: apiLanguage(),
       ...(mode === 'TRANSIT' ? { departureTime: departure } : {}),
     }),
   })
-  if (!res.ok) throw new Error(`Google 경로 오류 (${res.status})`)
+  if (!res.ok) throw new Error(t('Google 경로 오류 ({status})', { status: res.status }))
   const route = (await res.json()).routes?.[0]
   if (!route) return null
   const rides = (route.legs?.[0]?.steps ?? []).filter((s: { transitDetails?: unknown }) => s.transitDetails).length
@@ -103,7 +104,7 @@ async function odsayTransit(from: LatLng, to: LatLng): Promise<RouteResult | nul
   if (json.error) {
     const code = String(json.error.code ?? json.error[0]?.code ?? '')
     if (code === '-98') return null
-    throw new Error(`ODsay 오류 (${json.error.msg ?? json.error[0]?.message ?? code})`)
+    throw new Error(t('ODsay 오류 ({message})', { message: json.error.msg ?? json.error[0]?.message ?? code }))
   }
   const best = json.result?.path?.[0]
   if (!best) return null
@@ -149,7 +150,7 @@ async function tmapWalk(from: Place, to: Place): Promise<RouteResult | null> {
       resCoordType: 'WGS84GEO',
     }),
   })
-  if (!res.ok) throw new Error(`TMAP 오류 (${res.status})`)
+  if (!res.ok) throw new Error(t('TMAP 오류 ({status})', { status: res.status }))
   const features: { geometry: { type: string; coordinates: number[][] }; properties: Record<string, number> }[] =
     (await res.json()).features ?? []
   const summary = features[0]?.properties

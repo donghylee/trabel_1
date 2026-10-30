@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '../i18n'
 
 // "다시 보지 않기"는 탭(창)을 닫기 전까지만 유지 — sessionStorage에 기억
 const HIDE_KEY = 'trip-route-planner:welcome-hidden'
@@ -38,24 +39,24 @@ export default function WelcomeNotice() {
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id="welcome-title" className="wizard-title">
-          안내
+          {t('안내')}
         </h2>
         <p className="welcome-text">
-          현재 제작중에 있는 페이지 입니다.
+          {t('현재 제작중에 있는 페이지 입니다.')}
           <br />
-          추가로 기능은 계속해서 추가 될 예정입니다.
+          {t('추가로 기능은 계속해서 추가 될 예정입니다.')}
           <br />
-          더 추가 되었으면 하는 기능이 있을 경우에는
+          {t('더 추가 되었으면 하는 기능이 있을 경우에는')}
           <br />
-          카카오톡으로 연락 주시면 답변 드리겠습니다.
+          {t('카카오톡으로 연락 주시면 답변 드리겠습니다.')}
         </p>
         <label className="welcome-hide">
           <input type="checkbox" checked={hide} onChange={(e) => setHide(e.target.checked)} />
-          창을 닫기 전까지 다시 보지 않기
+          {t('창을 닫기 전까지 다시 보지 않기')}
         </label>
         <div className="welcome-actions">
           <button type="button" className="btn primary" onClick={close} autoFocus>
-            확인
+            {t('확인')}
           </button>
         </div>
       </div>

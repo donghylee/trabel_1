@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { t } from '../i18n'
 import { googleEnabled } from '../services/google'
-import { categoryLabels } from '../data/catalog'
+import { categoryLabel } from '../data/catalog'
 import { distanceMeters, formatDistance } from '../lib/travel'
 import { famousNearby } from '../services/landmarks'
 import type { Country, LatLng, Place } from '../types'
@@ -59,7 +60,7 @@ export default function PlaceMapPanel({
       })
       .catch((err: unknown) => {
         if (cancelled) return
-        setNearby({ status: 'error', message: err instanceof Error ? err.message : '주변 장소를 불러오지 못했습니다.' })
+        setNearby({ status: 'error', message: err instanceof Error ? err.message : t('주변 장소를 불러오지 못했습니다.') })
       })
     return () => {
       cancelled = true
@@ -74,7 +75,7 @@ export default function PlaceMapPanel({
       id: place.id,
       label: String(i + 1),
       title: place.name,
-      subtitle: '선택한 장소',
+      subtitle: t('선택한 장소'),
       position: place.location,
     }))
     for (const place of nearbyPlaces) {
@@ -83,7 +84,7 @@ export default function PlaceMapPanel({
         id: place.id,
         label: '📸',
         title: place.name,
-        subtitle: `${categoryLabels[place.category]} · 눌러서 보기`,
+        subtitle: `${categoryLabel(place.category)} · ${t('눌러서 보기')}`,
         position: place.location,
         variant: 'poi',
       })
@@ -93,7 +94,7 @@ export default function PlaceMapPanel({
         id: CANDIDATE_MARKER_ID,
         label: '📍',
         title: candidate.name,
-        subtitle: candidate.address || categoryLabels[candidate.category],
+        subtitle: candidate.address || categoryLabel(candidate.category),
         position: candidate.location,
         variant: 'candidate',
       })
@@ -122,7 +123,7 @@ export default function PlaceMapPanel({
           onMapClick={onMapClick}
         />
         <p className="map-tip">
-          {pinStatus.kind === 'loading' ? '위치를 확인하는 중…' : '지도를 누르면 그 위치를 고를 수 있어요'}
+          {pinStatus.kind === 'loading' ? t('위치를 확인하는 중…') : t('지도를 누르면 그 위치를 고를 수 있어요')}
         </p>
       </div>
       {pinStatus.kind === 'error' && <p className="hint error">{pinStatus.message}</p>}
@@ -133,12 +134,12 @@ export default function PlaceMapPanel({
           <div className="candidate-body">
             <div>
               <span className="place-option-name">{candidate.name}</span>{' '}
-              <span className="tag">{categoryLabels[candidate.category]}</span>
+              <span className="tag">{categoryLabel(candidate.category)}</span>
             </div>
             {candidate.address && <div className="hint">{candidate.address}</div>}
           </div>
           <button type="button" className="btn small primary" disabled={candidatePicked} onClick={() => onAdd(candidate)}>
-            {candidatePicked ? '추가됨' : '+ 추가'}
+            {candidatePicked ? t('추가됨') : t('+ 추가')}
           </button>
         </div>
       )}
@@ -146,13 +147,13 @@ export default function PlaceMapPanel({
       {anchor && (
         <div className="famous-nearby">
           <h3 className="section-label">
-            {anchor.name} 주변 유명한 곳{' '}
-            <span className="muted">· {googleEnabled ? 'Google 인기순' : '위키백과에 소개된 곳'}</span>
+            {t('{name} 주변 유명한 곳', { name: anchor.name })}{' '}
+            <span className="muted">· {googleEnabled ? t('Google 인기순') : t('위키백과에 소개된 곳')}</span>
           </h3>
-          {nearby.status === 'loading' && <p className="hint">주변 장소를 찾는 중…</p>}
+          {nearby.status === 'loading' && <p className="hint">{t('주변 장소를 찾는 중…')}</p>}
           {nearby.status === 'error' && <p className="hint error">{nearby.message}</p>}
           {nearby.status === 'done' && nearbyPlaces.length === 0 && (
-            <p className="hint">반경 1.5km 안에서 알려진 관광지를 찾지 못했습니다.</p>
+            <p className="hint">{t('반경 1.5km 안에서 알려진 관광지를 찾지 못했습니다.')}</p>
           )}
           {nearbyPlaces.length > 0 && (
             <ul className="famous-list">
@@ -163,11 +164,11 @@ export default function PlaceMapPanel({
                     <button type="button" className="famous-name as-link" onClick={() => onPreview(place)}>
                       📸 <span className="place-option-name">{place.name}</span>
                       <span className="hint">
-                        {categoryLabels[place.category]} · {formatDistance(Math.round(distanceMeters(anchor.location, place.location)))}
+                        {categoryLabel(place.category)} · {formatDistance(Math.round(distanceMeters(anchor.location, place.location)))}
                       </span>
                     </button>
                     <button type="button" className="btn small" disabled={picked} onClick={() => onAdd(place)}>
-                      {picked ? '추가됨' : '+ 추가'}
+                      {picked ? t('추가됨') : t('+ 추가')}
                     </button>
                   </li>
                 )

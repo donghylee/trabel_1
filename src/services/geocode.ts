@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { defaultStay } from '../lib/place'
 import { distanceMeters } from '../lib/travel'
 import { googlePlaceAt, googleSearchPlaces } from './googlePlaces'
@@ -67,7 +68,7 @@ export async function searchPlaces(
     params.set('lon', String(near.lng))
   }
   const res = await fetch(`${ENDPOINT}?${params}`, { signal })
-  if (!res.ok) throw new Error(`검색 실패 (${res.status})`)
+  if (!res.ok) throw new Error(t('검색 실패 ({status})', { status: res.status }))
   const data: { features: PhotonFeature[] } = await res.json()
 
   const places: Place[] = []
@@ -101,7 +102,7 @@ export async function placeAt(point: LatLng, country: Country, signal?: AbortSig
   if (googleEnabled) return googlePlaceAt(point, country)
   const params = new URLSearchParams({ lat: String(point.lat), lon: String(point.lng), limit: '1' })
   const res = await fetch(`${REVERSE_ENDPOINT}?${params}`, { signal })
-  if (!res.ok) throw new Error(`위치 확인 실패 (${res.status})`)
+  if (!res.ok) throw new Error(t('위치 확인 실패 ({status})', { status: res.status }))
   const data: { features: PhotonFeature[] } = await res.json()
   const p = data.features[0]?.properties
   if (p?.countrycode && p.countrycode !== country.code) return null
@@ -110,7 +111,7 @@ export async function placeAt(point: LatLng, country: Country, signal?: AbortSig
   const category = p?.name ? categoryOf(p.osm_key, p.osm_value) : 'sight'
   // 가장 가까운 게 길·동네 이름이면 그 장소 자체가 아니므로 "근처"를 붙임
   const isArea = p?.osm_key === 'highway' || p?.osm_key === 'place' || p?.osm_key === 'boundary'
-  const name = p?.name ? (isArea ? `${p.name} 근처` : p.name) : address || '지도에서 고른 위치'
+  const name = p?.name ? (isArea ? t('{name} 근처', { name: p.name }) : p.name) : address || t('지도에서 고른 위치')
   return {
     id: `pin-${point.lat.toFixed(5)},${point.lng.toFixed(5)}`,
     name,

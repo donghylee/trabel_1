@@ -1,3 +1,4 @@
+import { getLang } from '../i18n'
 import type { Currency, NearbyKind, NearbyPlace, Place } from '../types'
 import { googleEnabled } from './google'
 import { googleNearbyRated } from './googlePlaces'
@@ -39,6 +40,16 @@ const words: Partial<Record<Currency, Words>> = {
   },
 }
 
+/** 영어 화면용 이름 조합 (나라 구분 없이) */
+const englishWords: Words = {
+  prefix: ['Local', 'Old Town', 'Riverside', 'Sunset', 'Garden', 'Corner', 'Harbor', 'Market', 'Golden', 'Blue'],
+  kinds: {
+    restaurant: ['Noodle House', 'Kitchen', 'Grill', 'Seafood', 'BBQ', 'Rice Bowl', 'Curry', 'Dumplings', 'Bistro', 'Diner'],
+    cafe: ['Coffee', 'Bakery', 'Tea House', 'Dessert Bar', 'Juice Bar', 'Roastery'],
+    attraction: ['Temple', 'Lookout', 'Park', 'Night Market', 'Gallery', 'Square', 'Museum', 'Beach'],
+  },
+}
+
 /** 문자열 → 고정된 난수 씨앗 (같은 장소는 항상 같은 결과) */
 function hash(text: string): number {
   let h = 2166136261
@@ -62,7 +73,7 @@ function seededRandom(seed: number): () => number {
 function mockSearch(around: Place, kind: NearbyKind, currency: Currency): NearbyPlace[] {
   const rand = seededRandom(hash(`${around.id}:${kind}`))
   const pick = <T,>(list: T[]) => list[Math.floor(rand() * list.length)]
-  const { prefix, kinds } = words[currency] ?? defaultWords
+  const { prefix, kinds } = getLang() === 'en' ? englishWords : (words[currency] ?? defaultWords)
 
   return Array.from({ length: RESULTS_PER_SEARCH }, (_, i) => {
     const distance = 80 + rand() * SEARCH_RADIUS_METERS
@@ -86,7 +97,8 @@ function mockSearch(around: Place, kind: NearbyKind, currency: Currency): Nearby
 const cache = new Map<string, Promise<NearbyPlace[]>>()
 
 export function searchNearby(around: Place, kind: NearbyKind, currency: Currency): Promise<NearbyPlace[]> {
-  const key = `${around.id}:${kind}`
+  // 가짜 데이터는 언어마다 이름이 달라서 언어도 키에 넣음
+  const key = `${around.id}:${kind}:${getLang()}`
   let result = cache.get(key)
   if (!result) {
     result = googleEnabled

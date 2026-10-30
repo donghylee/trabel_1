@@ -1,3 +1,5 @@
+import { t } from '../i18n'
+import { googleMapsUrl, openInNewWindow } from '../lib/place'
 import { nearbyKindIcons, nearbyKindLabels } from '../lib/recommend'
 import { googleEnabled } from '../services/google'
 import { formatDistance } from '../lib/travel'
@@ -48,8 +50,8 @@ export default function NearbyPanel({
   return (
     <section className="nearby">
       <div className="nearby-head">
-        <h3>주변 추천</h3>
-        <span className="hint">별점·리뷰 수·동선 거리 기준</span>
+        <h3>{t('주변 추천')}</h3>
+        <span className="hint">{t('별점·리뷰 수·동선 거리 기준')}</span>
       </div>
 
       <div className="tabs" role="tablist">
@@ -62,7 +64,7 @@ export default function NearbyPanel({
             className={`tab ${kind === k ? 'active' : ''}`}
             onClick={() => onKindChange(k)}
           >
-            {k === 'all' ? '전체' : `${nearbyKindIcons[k]} ${nearbyKindLabels[k]}`}
+            {k === 'all' ? t('전체') : `${nearbyKindIcons[k]} ${t(nearbyKindLabels[k])}`}
           </button>
         ))}
       </div>
@@ -73,7 +75,7 @@ export default function NearbyPanel({
           className={`chip ${scope === 'all' ? 'active' : ''}`}
           onClick={() => onScopeChange('all')}
         >
-          동선 전체
+          {t('동선 전체')}
         </button>
         {stops.map((s) => (
           <button
@@ -88,9 +90,9 @@ export default function NearbyPanel({
       </div>
 
       {loading ? (
-        <p className="hint">주변 장소를 찾는 중…</p>
+        <p className="hint">{t('주변 장소를 찾는 중…')}</p>
       ) : recommendations.length === 0 ? (
-        <p className="hint">조건에 맞는 추천 장소가 없습니다.</p>
+        <p className="hint">{t('조건에 맞는 추천 장소가 없습니다.')}</p>
       ) : (
         <ol className="rec-list">
           {recommendations.map((rec, i) => (
@@ -103,13 +105,24 @@ export default function NearbyPanel({
                 <div className="rec-meta">
                   <Stars rating={rec.poi.rating} reviewCount={rec.poi.reviewCount} />
                   <span className="muted">
-                    · {orderOf(rec.anchor.id)}. {rec.anchor.name}에서 도보 {rec.walkMinutes}분 ({formatDistance(rec.meters)})
+                    · {orderOf(rec.anchor.id)}.{' '}
+                    {t('{name}에서 도보 {n}분', { name: rec.anchor.name, n: rec.walkMinutes })} ({formatDistance(rec.meters)})
                   </span>
                 </div>
               </button>
+              <a
+                className="btn small gmaps-link"
+                href={googleMapsUrl(rec.poi)}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={openInNewWindow}
+                title={t('Google 지도에서 열기')}
+              >
+                {t('Google 지도')} ↗
+              </a>
               {onAdd && (
                 <button type="button" className="btn small" onClick={() => onAdd(rec)}>
-                  + 일정에 추가
+                  {t('+ 일정에 추가')}
                 </button>
               )}
             </li>
@@ -117,7 +130,9 @@ export default function NearbyPanel({
         </ol>
       )}
       <p className="hint">
-        {googleEnabled ? 'Google 지도의 별점·리뷰 수 기준입니다.' : '지금은 가짜 데이터입니다. Google 키를 넣으면 실제 별점으로 바뀝니다.'}
+        {googleEnabled
+          ? t('Google 지도의 별점·리뷰 수 기준입니다.')
+          : t('지금은 가짜 데이터입니다. Google 키를 넣으면 실제 별점으로 바뀝니다.')}
       </p>
     </section>
   )

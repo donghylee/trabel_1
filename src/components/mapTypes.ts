@@ -9,7 +9,7 @@ export type MapMarker = {
   subtitle: string
   position: LatLng
   /**
-   * stop = 방문지 번호 마커, lodging = 숙소, meal = 경로에 넣은 음식점(주황색 원) — 이 셋에 맞춰 지도 범위를 정함
+   * stop = 방문지 번호 마커, lodging = 숙소, meal = 경로에 넣은 음식점(빨간 원) — 이 셋에 맞춰 지도 범위를 정함
    * poi = 추천 장소, candidate = 지금 보고 있는 검색 결과·지도에서 고른 위치
    */
   variant?: 'stop' | 'lodging' | 'meal' | 'poi' | 'candidate'

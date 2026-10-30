@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { isSamePlace } from '../../lib/place'
 import type { Country, LatLng, Place } from '../../types'
 import PlaceSearch from '../PlaceSearch'
@@ -16,7 +17,7 @@ export default function LodgingStep({ country, near, lodging, startFromLodging, 
   return (
     <div className="place-step">
       <p className="hint">
-        숙소를 넣으면 숙소 → 첫 장소, 마지막 장소 → 숙소 이동까지 일정에 포함됩니다. 숙소가 없으면 건너뛰어도 됩니다.
+        {t('숙소를 넣으면 숙소 → 첫 장소, 마지막 장소 → 숙소 이동까지 일정에 포함됩니다. 숙소가 없으면 건너뛰어도 됩니다.')}
       </p>
 
       {lodging ? (
@@ -31,18 +32,18 @@ export default function LodgingStep({ country, near, lodging, startFromLodging, 
             className="btn small"
             onClick={() => onChange(null, startFromLodging, returnToLodging)}
           >
-            숙소 지우기
+            {t('숙소 지우기')}
           </button>
         </div>
       ) : (
         <PlaceSearch
           country={country}
           near={near}
-          placeholder="숙소 이름이나 주소를 검색하세요 (예: 신라호텔, 명동 게스트하우스)"
+          placeholder={t('숙소 이름이나 주소를 검색하세요 (예: 신라호텔, 명동 게스트하우스)')}
           isPicked={(place) => !!lodging && isSamePlace(lodging, place)}
           onPick={(place) => onChange({ ...place, category: 'lodging' }, startFromLodging, returnToLodging)}
-          pickLabel="숙소로 선택"
-          pickedLabel="선택됨"
+          pickLabel={t('숙소로 선택')}
+          pickedLabel={t('선택됨')}
           clearOnPick
           autoFocus
         />
@@ -56,7 +57,7 @@ export default function LodgingStep({ country, near, lodging, startFromLodging, 
             disabled={!lodging}
             onChange={(e) => onChange(lodging, e.target.checked, returnToLodging)}
           />
-          출발 시각에 숙소에서 출발
+          {t('출발 시각에 숙소에서 출발')}
         </label>
         <label>
           <input
@@ -65,7 +66,7 @@ export default function LodgingStep({ country, near, lodging, startFromLodging, 
             disabled={!lodging}
             onChange={(e) => onChange(lodging, startFromLodging, e.target.checked)}
           />
-          마지막에 숙소로 돌아오기 (종료 시각 안에 포함)
+          {t('마지막에 숙소로 돌아오기 (종료 시각 안에 포함)')}
         </label>
       </div>
     </div>

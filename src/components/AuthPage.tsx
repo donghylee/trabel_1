@@ -1,4 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react'
+import { t } from '../i18n'
 import {
   DEFAULT_ICON,
   isIdTaken,
@@ -70,18 +71,18 @@ function LoginForm({
   async function submit(e: FormEvent) {
     e.preventDefault()
     if (!id.trim()) {
-      setError('ID를 입력해 주세요.')
+      setError(t('ID를 입력해 주세요.'))
       idRef.current?.focus()
       return
     }
     if (!password) {
-      setError('PW를 입력해 주세요.')
+      setError(t('PW를 입력해 주세요.'))
       pwRef.current?.focus()
       return
     }
     const user = await logIn(id, password)
     if (!user) {
-      setError('ID 또는 PW가 올바르지 않습니다.')
+      setError(t('ID 또는 PW가 올바르지 않습니다.'))
       return
     }
     onLogin(user)
@@ -89,8 +90,8 @@ function LoginForm({
 
   return (
     <section className="wizard auth-card">
-      <h2 className="wizard-title">로그인</h2>
-      {justSignedUp && !error && <p className="notice success">회원가입이 완료되었습니다. 로그인해 주세요.</p>}
+      <h2 className="wizard-title">{t('로그인')}</h2>
+      {justSignedUp && !error && <p className="notice success">{t('회원가입이 완료되었습니다. 로그인해 주세요.')}</p>}
       <form className="login-row" onSubmit={submit} noValidate>
         <div className="login-inputs">
           <input
@@ -119,7 +120,7 @@ function LoginForm({
       </form>
       {error && <p className="field-error">{error}</p>}
       <button type="button" className="link-btn signup-link" onClick={onSignup}>
-        회원가입
+        {t('회원가입')}
       </button>
     </section>
   )
@@ -165,7 +166,7 @@ function SignupForm({ onCancel, onDone }: { onCancel: () => void; onDone: (id: s
   function checkId() {
     const value = values.id.trim()
     if (!value) {
-      setErrors((e) => ({ ...e, id: 'ID를 입력한 뒤 중복 확인을 눌러 주세요.' }))
+      setErrors((e) => ({ ...e, id: t('ID를 입력한 뒤 중복 확인을 눌러 주세요.') }))
       refs.current.id?.focus()
       return
     }
@@ -176,7 +177,7 @@ function SignupForm({ onCancel, onDone }: { onCancel: () => void; onDone: (id: s
   function checkNickname() {
     const value = values.nickname.trim()
     if (!value) {
-      setErrors((e) => ({ ...e, nickname: '닉네임을 입력한 뒤 중복 확인을 눌러 주세요.' }))
+      setErrors((e) => ({ ...e, nickname: t('닉네임을 입력한 뒤 중복 확인을 눌러 주세요.') }))
       refs.current.nickname?.focus()
       return
     }
@@ -190,27 +191,27 @@ function SignupForm({ onCancel, onDone }: { onCancel: () => void; onDone: (id: s
 
     // 1) 빈 칸부터 안내
     const empty = FIELD_ORDER.filter((f) => !values[f].trim())
-    for (const f of empty) next[f] = `${FIELD_LABELS[f]} 칸이 비어 있습니다. 입력해 주세요.`
+    for (const f of empty) next[f] = t('{field} 칸이 비어 있습니다. 입력해 주세요.', { field: t(FIELD_LABELS[f]) })
     if (empty.length > 0) {
       setErrors(next)
-      setSummary(`비어 있는 칸이 있습니다: ${empty.map((f) => FIELD_LABELS[f]).join(', ')}`)
+      setSummary(t('비어 있는 칸이 있습니다: {fields}', { fields: empty.map((f) => t(FIELD_LABELS[f])).join(', ') }))
       refs.current[empty[0]]?.focus()
       return
     }
 
     // 2) 내용 확인
-    if (!idChecked) next.id = idCheck?.value === values.id.trim() ? '이미 사용 중인 ID입니다.' : 'ID 중복 확인을 해 주세요.'
+    if (!idChecked) next.id = idCheck?.value === values.id.trim() ? t('이미 사용 중인 ID입니다.') : t('ID 중복 확인을 해 주세요.')
     if (!nicknameChecked)
       next.nickname =
-        nicknameCheck?.value === values.nickname.trim() ? '이미 사용 중인 닉네임입니다.' : '닉네임 중복 확인을 해 주세요.'
-    if (values.password !== values.passwordConfirm) next.passwordConfirm = 'PW가 일치하지 않습니다.'
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) next.email = '올바른 E-mail 주소를 입력해 주세요.'
-    if (!agreed) next.agree = '약관에 동의(체크)해야 회원가입이 가능합니다.'
+        nicknameCheck?.value === values.nickname.trim() ? t('이미 사용 중인 닉네임입니다.') : t('닉네임 중복 확인을 해 주세요.')
+    if (values.password !== values.passwordConfirm) next.passwordConfirm = t('PW가 일치하지 않습니다.')
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) next.email = t('올바른 E-mail 주소를 입력해 주세요.')
+    if (!agreed) next.agree = t('약관에 동의(체크)해야 회원가입이 가능합니다.')
 
     const first = ([...FIELD_ORDER, 'agree'] as const).find((f) => next[f])
     if (first) {
       setErrors(next)
-      setSummary('입력한 내용을 확인해 주세요.')
+      setSummary(t('입력한 내용을 확인해 주세요.'))
       refs.current[first]?.focus()
       return
     }
@@ -243,16 +244,16 @@ function SignupForm({ onCancel, onDone }: { onCancel: () => void; onDone: (id: s
     if (errors[field]) return <p className="field-error">{errors[field]}</p>
     if (check && check.value === value.trim())
       return checked ? (
-        <p className="field-ok">사용할 수 있는 {FIELD_LABELS[field]}입니다.</p>
+        <p className="field-ok">{t('사용할 수 있는 {field}입니다.', { field: t(FIELD_LABELS[field]) })}</p>
       ) : (
-        <p className="field-error">이미 사용 중인 {FIELD_LABELS[field]}입니다.</p>
+        <p className="field-error">{t('이미 사용 중인 {field}입니다.', { field: t(FIELD_LABELS[field]) })}</p>
       )
     return null
   }
 
   return (
     <section className="wizard auth-card">
-      <h2 className="wizard-title">회원가입</h2>
+      <h2 className="wizard-title">{t('회원가입')}</h2>
       {summary && <p className="notice error-notice">{summary}</p>}
       <form className="signup-form" onSubmit={submit} noValidate>
         <div className="signup-field">
@@ -260,18 +261,18 @@ function SignupForm({ onCancel, onDone }: { onCancel: () => void; onDone: (id: s
           <div className="with-button">
             {input('id', { autoComplete: 'username', placeholder: 'ID' })}
             <button type="button" className="btn small" onClick={checkId}>
-              중복 확인
+              {t('중복 확인')}
             </button>
           </div>
           {feedback('id', idChecked, idCheck, values.id)}
         </div>
 
         <div className="signup-field">
-          <label htmlFor="signup-nickname">닉네임</label>
+          <label htmlFor="signup-nickname">{t('닉네임')}</label>
           <div className="with-button">
-            {input('nickname', { autoComplete: 'nickname', placeholder: '닉네임' })}
+            {input('nickname', { autoComplete: 'nickname', placeholder: t('닉네임') })}
             <button type="button" className="btn small" onClick={checkNickname}>
-              중복 확인
+              {t('중복 확인')}
             </button>
           </div>
           {feedback('nickname', nicknameChecked, nicknameCheck, values.nickname)}
@@ -284,8 +285,8 @@ function SignupForm({ onCancel, onDone }: { onCancel: () => void; onDone: (id: s
         </div>
 
         <div className="signup-field">
-          <label htmlFor="signup-passwordConfirm">PW 확인</label>
-          {input('passwordConfirm', { type: 'password', autoComplete: 'new-password', placeholder: 'PW 다시 입력' })}
+          <label htmlFor="signup-passwordConfirm">{t('PW 확인')}</label>
+          {input('passwordConfirm', { type: 'password', autoComplete: 'new-password', placeholder: t('PW 다시 입력') })}
           {errors.passwordConfirm && <p className="field-error">{errors.passwordConfirm}</p>}
         </div>
 
@@ -308,19 +309,19 @@ function SignupForm({ onCancel, onDone }: { onCancel: () => void; onDone: (id: s
                 setErrors((er) => ({ ...er, agree: undefined }))
               }}
             />
-            이용약관 및 개인정보 수집·이용에 동의합니다. (필수)
+            {t('이용약관 및 개인정보 수집·이용에 동의합니다. (필수)')}
           </label>
           <p className={errors.agree ? 'field-error' : 'hint'}>
-            {errors.agree ?? '체크박스에 체크해야 회원가입이 가능합니다.'}
+            {errors.agree ?? t('체크박스에 체크해야 회원가입이 가능합니다.')}
           </p>
         </div>
 
         <div className="wizard-nav">
           <button type="button" className="btn" onClick={onCancel}>
-            로그인으로 돌아가기
+            {t('로그인으로 돌아가기')}
           </button>
           <button type="submit" className="btn primary">
-            회원가입
+            {t('회원가입')}
           </button>
         </div>
       </form>
@@ -347,7 +348,7 @@ function shrinkImage(file: File): Promise<string> {
     }
     img.onerror = () => {
       URL.revokeObjectURL(url)
-      reject(new Error('이미지를 읽지 못했습니다.'))
+      reject(new Error(t('이미지를 읽지 못했습니다.')))
     }
     img.src = url
   })
@@ -363,7 +364,7 @@ function AccountInfo({ user, onUserChange }: { user: SessionUser; onUserChange: 
   const [pendingIcon, setPendingIcon] = useState<string | null>(null)
   return (
     <section className="wizard auth-card">
-      <h2 className="wizard-title">계정 설정</h2>
+      <h2 className="wizard-title">{t('계정 설정')}</h2>
       <NicknameEditor user={user} shownIcon={pendingIcon ?? user.icon} onUserChange={onUserChange} />
       <IconEditor user={user} pending={pendingIcon} onPendingChange={setPendingIcon} onUserChange={onUserChange} />
     </section>
@@ -391,22 +392,22 @@ function NicknameEditor({
 
   function checkDuplicate() {
     if (!value) {
-      setMessage({ ok: false, text: '닉네임을 입력해 주세요.' })
+      setMessage({ ok: false, text: t('닉네임을 입력해 주세요.') })
       inputRef.current?.focus()
       return
     }
     if (unchanged) {
-      setMessage({ ok: false, text: '지금 쓰고 있는 닉네임과 같습니다.' })
+      setMessage({ ok: false, text: t('지금 쓰고 있는 닉네임과 같습니다.') })
       return
     }
     const ok = !isNicknameTaken(value, user.id)
     setCheck({ value, ok })
-    setMessage(ok ? { ok: true, text: '사용할 수 있는 닉네임입니다.' } : { ok: false, text: '이미 사용 중인 닉네임입니다.' })
+    setMessage(ok ? { ok: true, text: t('사용할 수 있는 닉네임입니다.') } : { ok: false, text: t('이미 사용 중인 닉네임입니다.') })
   }
 
   function confirm() {
     if (!value) {
-      setMessage({ ok: false, text: '닉네임을 입력해 주세요.' })
+      setMessage({ ok: false, text: t('닉네임을 입력해 주세요.') })
       inputRef.current?.focus()
       return
     }
@@ -418,19 +419,19 @@ function NicknameEditor({
     if (!checked) {
       setMessage({
         ok: false,
-        text: check?.value === value ? '이미 사용 중인 닉네임입니다.' : '닉네임 중복 확인을 해 주세요.',
+        text: check?.value === value ? t('이미 사용 중인 닉네임입니다.') : t('닉네임 중복 확인을 해 주세요.'),
       })
       return
     }
     const next = updateNickname(user, value)
     if (!next) {
-      setMessage({ ok: false, text: SAVE_FAILED })
+      setMessage({ ok: false, text: t(SAVE_FAILED) })
       return
     }
     onUserChange(next)
     setDraft(null)
     setCheck(null)
-    setMessage({ ok: true, text: '닉네임을 바꿨습니다.' })
+    setMessage({ ok: true, text: t('닉네임을 바꿨습니다.') })
   }
 
   function cancel() {
@@ -454,7 +455,7 @@ function NicknameEditor({
                 setMessage(null)
               }}
             >
-              수정
+              {t('수정')}
             </button>
           </div>
         ) : (
@@ -467,11 +468,11 @@ function NicknameEditor({
                 setDraft(e.target.value)
                 setMessage(null)
               }}
-              aria-label="새 닉네임"
+              aria-label={t('새 닉네임')}
               autoFocus
             />
             <button type="button" className="btn small" onClick={checkDuplicate}>
-              중복 확인
+              {t('중복 확인')}
             </button>
           </div>
         )}
@@ -480,10 +481,10 @@ function NicknameEditor({
         {draft !== null && (
           <div className="confirm-row">
             <button type="button" className="btn small primary" onClick={confirm}>
-              확인
+              {t('확인')}
             </button>
             <button type="button" className="btn small" onClick={cancel}>
-              취소
+              {t('취소')}
             </button>
           </div>
         )}
@@ -511,14 +512,14 @@ function IconEditor({
   async function upload(file: File | undefined) {
     if (!file) return
     if (!file.type.startsWith('image/')) {
-      setMessage({ ok: false, text: '이미지 파일만 올릴 수 있습니다.' })
+      setMessage({ ok: false, text: t('이미지 파일만 올릴 수 있습니다.') })
       return
     }
     try {
       setPending(await shrinkImage(file))
       setMessage(null)
     } catch {
-      setMessage({ ok: false, text: '이미지를 읽지 못했습니다. 다른 파일로 시도해 주세요.' })
+      setMessage({ ok: false, text: t('이미지를 읽지 못했습니다. 다른 파일로 시도해 주세요.') })
     }
   }
 
@@ -526,18 +527,18 @@ function IconEditor({
     if (!pending) return
     const next = updateIcon(user, pending)
     if (!next) {
-      setMessage({ ok: false, text: SAVE_FAILED })
+      setMessage({ ok: false, text: t(SAVE_FAILED) })
       return
     }
     onUserChange(next)
     setPending(null)
-    setMessage({ ok: true, text: '아이콘을 바꿨습니다.' })
+    setMessage({ ok: true, text: t('아이콘을 바꿨습니다.') })
   }
 
   return (
     <div className="signup-field">
-      <label>프로필 아이콘</label>
-      <div className="icon-grid" role="radiogroup" aria-label="프로필 아이콘">
+      <label>{t('프로필 아이콘')}</label>
+      <div className="icon-grid" role="radiogroup" aria-label={t('프로필 아이콘')}>
         {ICON_CHOICES.map((icon) => (
           <button
             key={icon}
@@ -555,7 +556,7 @@ function IconEditor({
         ))}
       </div>
       <label className="btn small icon-upload">
-        📷 사진 올리기
+        📷 {t('사진 올리기')}
         <input
           type="file"
           accept="image/*"
@@ -571,7 +572,7 @@ function IconEditor({
       {pending && (
         <div className="confirm-row">
           <button type="button" className="btn small primary" onClick={confirm}>
-            확인
+            {t('확인')}
           </button>
           <button
             type="button"
@@ -581,7 +582,7 @@ function IconEditor({
               setMessage(null)
             }}
           >
-            취소
+            {t('취소')}
           </button>
         </div>
       )}

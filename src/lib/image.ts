@@ -1,3 +1,5 @@
+import { t } from '../i18n'
+
 /**
  * 올린 사진을 긴 변 maxSide px 이하 JPEG data URL로 줄인다.
  * 서버 없이 localStorage에 넣어야 해서 크기를 작게 유지.
@@ -17,7 +19,7 @@ export function resizeImage(file: File, maxSide = 1080, quality = 0.75): Promise
     }
     img.onerror = () => {
       URL.revokeObjectURL(url)
-      reject(new Error('이미지를 읽지 못했습니다.'))
+      reject(new Error(t('이미지를 읽지 못했습니다.')))
     }
     img.src = url
   })

@@ -61,6 +61,8 @@ export type TripInput = {
   /** "HH:MM" */
   startTime: string
   endTime: string
+  /** 장소 단계에서 순서를 직접 바꿨으면 true — selections 순서대로 방문 (없거나 false면 앱이 최적 순서로) */
+  orderFixed?: boolean
 }
 
 export type TravelMode = 'walk' | 'transit' | 'taxi'

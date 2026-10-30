@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { findCountry, placesOf } from '../data/catalog'
+import { t } from '../i18n'
 import { toMinutes } from '../lib/time'
 import type { LatLng, TripInput } from '../types'
 import CountryStep from './steps/CountryStep'
@@ -60,12 +61,12 @@ export default function Wizard({ input, startAt = 'country', onChange, onComplet
         {steps.map((s, i) => (
           <li key={s.label} className={i === step ? 'active' : i < step ? 'done' : ''}>
             <span className="stepper-dot">{i < step ? '✓' : i + 1}</span>
-            {s.label}
+            {t(s.label)}
           </li>
         ))}
       </ol>
 
-      <h2 className="wizard-title">{steps[step].title}</h2>
+      <h2 className="wizard-title">{t(steps[step].title)}</h2>
 
       <div className="wizard-body">
         {step === 0 && (
@@ -84,7 +85,9 @@ export default function Wizard({ input, startAt = 'country', onChange, onComplet
             country={country}
             customPlaces={input.customPlaces}
             selections={input.selections}
+            orderFixed={!!input.orderFixed}
             onChange={(selections, customPlaces) => onChange({ ...input, selections, customPlaces })}
+            onOrderChange={(selections, orderFixed) => onChange({ ...input, selections, orderFixed })}
           />
         )}
         {step === 2 && country && (
@@ -111,7 +114,7 @@ export default function Wizard({ input, startAt = 'country', onChange, onComplet
 
       <div className="wizard-nav">
         <button type="button" className="btn" disabled={step === 0} onClick={() => setStep(step - 1)}>
-          이전
+          {t('이전')}
         </button>
         <button
           type="button"
@@ -119,7 +122,7 @@ export default function Wizard({ input, startAt = 'country', onChange, onComplet
           disabled={!canProceed}
           onClick={() => (isLast ? onComplete() : setStep(step + 1))}
         >
-          {isLast ? '일정 만들기' : '다음'}
+          {isLast ? t('일정 만들기') : t('다음')}
         </button>
       </div>
     </div>

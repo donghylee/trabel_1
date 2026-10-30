@@ -156,7 +156,7 @@ export function useDragReorder(ids: string[], onReorder: (order: string[]) => vo
       onPointerDown: (e: ReactPointerEvent) => {
         if (e.button !== 0) return
         // ▲▼ 버튼, 시간 선택 같은 입력칸은 끌기에서 제외
-        if ((e.target as HTMLElement).closest('.reorder, select, input, .link-btn')) return
+        if ((e.target as HTMLElement).closest('.reorder, select, input, .link-btn, .remove-btn')) return
         cancelPending()
         const p: Pending = {
           id,

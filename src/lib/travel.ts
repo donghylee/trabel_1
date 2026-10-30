@@ -37,8 +37,9 @@ export const modeIcons: Record<TravelMode, string> = {
 /** 지도 경로선 스타일 */
 export const pathStyles: Record<TravelMode, { color: string; dashArray?: string }> = {
   walk: { color: '#16a34a', dashArray: '6 8' },
-  transit: { color: '#2563eb' },
-  taxi: { color: '#ea580c' },
+  transit: { color: '#f86a07' },
+  // 대중교통이 시그니처 주황이라 택시는 구분되게 보라
+  taxi: { color: '#7c3aed' },
 }
 
 /** 두 좌표 사이 직선거리(m) */
