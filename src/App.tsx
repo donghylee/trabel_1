@@ -1,13 +1,19 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import logo from './assets/logo.png'
+import AuthPage, { UserIcon } from './components/AuthPage'
+import CommunityPage from './components/CommunityPage'
 import MyPage, { type MyPageSelection } from './components/MyPage'
 import SaveDialog from './components/SaveDialog'
 import ScheduleView from './components/ScheduleView'
+import WelcomeNotice from './components/WelcomeNotice'
 import Wizard from './components/Wizard'
 import { findCountry, placesOf } from './data/catalog'
 import { useFetchRealLegs, useRealLegStore } from './hooks/useRealLegs'
+import { useBookmarks } from './hooks/useBookmarks'
 import { useTrips } from './hooks/useTrips'
 import { toPlace } from './lib/recommend'
 import { applyAdjustment, buildSchedule, suggestAdjustments } from './lib/schedule'
+import { loadSession, logOut, type SessionUser } from './lib/auth'
 import { deleteDay, deleteTrip, nextDayNumber, renameTrip, upsertDay, type SaveTarget } from './lib/storage'
 import { toHHMM } from './lib/time'
 import { routeNote } from './services/routes'
@@ -38,7 +44,13 @@ const initialInput: TripInput = {
 type Editing = { tripId: string; dayNumber: number }
 
 export default function App() {
-  const [view, setView] = useState<'planner' | 'mypage'>('planner')
+  const [view, setView] = useState<'planner' | 'mypage' | 'community' | 'login'>('planner')
+  // 마이페이지 탭 옆 ▾ 메뉴 (마이페이지 / 커뮤니티)
+  // 헤더의 펼침 메뉴: 'pages' = 커뮤니티 ▾ (커뮤니티 / 마이페이지), 'account' = 닉네임 (계정 설정 / 로그아웃)
+  const [openMenu, setOpenMenu] = useState<'pages' | 'account' | null>(null)
+  const pagesMenuRef = useRef<HTMLDivElement>(null)
+  const accountMenuRef = useRef<HTMLDivElement>(null)
+  const [user, setUser] = useState<SessionUser | null>(loadSession)
   const [input, setInput] = useState<TripInput>(initialInput)
   const [phase, setPhase] = useState<'input' | 'result'>('input')
   const [wizardStart, setWizardStart] = useState<'country' | 'places' | 'time'>('country')
@@ -50,11 +62,29 @@ export default function App() {
   const [mealSlots, setMealSlots] = useState<MealSlots>({})
 
   const { trips, setTrips, saveFailed } = useTrips()
+  const bookmarks = useBookmarks(user)
   const [editing, setEditing] = useState<Editing | null>(null)
   const [saveOpen, setSaveOpen] = useState(false)
   // 방금 저장했으면 결과 화면에 안내를 띄움 (일정을 고치면 사라짐)
   const [justSaved, setJustSaved] = useState(false)
+  // 로그인하지 않고 저장을 누르면 안내 (로그인하면 만들던 일정으로 돌아옴)
+  const [loginNeeded, setLoginNeeded] = useState(false)
   const [myPageSelection, setMyPageSelection] = useState<MyPageSelection>(null)
+
+  useEffect(() => {
+    if (!openMenu) return
+    const ref = openMenu === 'pages' ? pagesMenuRef : accountMenuRef
+    const close = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpenMenu(null)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [openMenu])
+
+  function logout() {
+    logOut()
+    setUser(null)
+  }
 
   const country = findCountry(input.countryCode)
   const editingTrip = trips.find((t) => t.id === editing?.tripId)
@@ -202,28 +232,148 @@ export default function App() {
   const scheduleTitle =
     editingTrip && editing ? `${editingTrip.name} · ${editing.dayNumber}일차` : `${country?.name ?? ''} 하루 일정`
   // 지도가 나오는 화면은 창 전체 폭, 나머지는 가운데 카드 폭
-  const wide = view === 'mypage' ? !!myPageSelection : phase === 'result'
+  const wide = view === 'login' || view === 'community' ? false : view === 'mypage' ? !!myPageSelection : phase === 'result'
 
   return (
     <div className="app">
       <header className="app-header">
         <div className={`app-header-inner ${wide ? 'wide' : ''}`}>
-          <span className="brand">여행 동선 플래너</span>
+          {/* 로고를 누르면 메인(일정 만들기) 화면으로 */}
+          <button
+            type="button"
+            className="brand"
+            onClick={() => {
+              setView('planner')
+              setOpenMenu(null)
+            }}
+          >
+            <img src={logo} alt="PLAN:J 메인으로" />
+          </button>
           <nav className="header-tabs">
             <button type="button" className={view === 'planner' ? 'active' : ''} onClick={() => setView('planner')}>
               일정 만들기
             </button>
-            <button type="button" className={view === 'mypage' ? 'active' : ''} onClick={() => setView('mypage')}>
-              마이페이지{trips.length > 0 && <span className="count">{trips.length}</span>}
-            </button>
+            <div ref={pagesMenuRef} className={`tab-menu ${view === 'mypage' || view === 'community' ? 'active' : ''}`}>
+              <button type="button" onClick={() => setView('community')}>
+                {view === 'mypage' ? '마이페이지' : '커뮤니티'}
+                {view === 'mypage' && trips.length > 0 && <span className="count">{trips.length}</span>}
+              </button>
+              <button
+                type="button"
+                className="tab-menu-toggle"
+                aria-label="커뮤니티 메뉴 열기"
+                aria-expanded={openMenu === 'pages'}
+                onClick={() => setOpenMenu(openMenu === 'pages' ? null : 'pages')}
+              >
+                ▾
+              </button>
+              {openMenu === 'pages' && (
+                <ul className="tab-menu-list" role="menu">
+                  {(
+                    [
+                      ['community', '커뮤니티'],
+                      ['mypage', '마이페이지'],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <li key={key}>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className={view === key ? 'current' : ''}
+                        onClick={() => {
+                          setView(key)
+                          setOpenMenu(null)
+                        }}
+                      >
+                        {label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            {user ? (
+              <div ref={accountMenuRef} className={`tab-menu ${view === 'login' ? 'active' : ''}`}>
+                <button
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={openMenu === 'account'}
+                  onClick={() => setOpenMenu(openMenu === 'account' ? null : 'account')}
+                >
+                  <UserIcon icon={user.icon} />
+                  {user.nickname}님<span className="tab-menu-caret">▾</span>
+                </button>
+                {openMenu === 'account' && (
+                  <ul className="tab-menu-list" role="menu">
+                    <li>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className={view === 'login' ? 'current' : ''}
+                        onClick={() => {
+                          setView('login')
+                          setOpenMenu(null)
+                        }}
+                      >
+                        계정 설정
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          logout()
+                          setOpenMenu(null)
+                        }}
+                      >
+                        로그아웃
+                      </button>
+                    </li>
+                  </ul>
+                )}
+              </div>
+            ) : (
+              <button type="button" className={view === 'login' ? 'active' : ''} onClick={() => setView('login')}>
+                로그인
+              </button>
+            )}
           </nav>
         </div>
       </header>
 
-      {view === 'mypage' ? (
+      {view === 'community' ? (
+        <main className="app-main">
+          <CommunityPage
+            user={user}
+            trips={trips}
+            onRequireLogin={() => setView('login')}
+            onNewPlan={newPlan}
+            isBookmarked={bookmarks.isBookmarked}
+            onToggleBookmark={bookmarks.toggle}
+          />
+        </main>
+      ) : view === 'login' ? (
+        <main className="app-main">
+          <AuthPage
+            user={user}
+            onUserChange={setUser}
+            onLogin={(u) => {
+              setUser(u)
+              if (loginNeeded) {
+                setLoginNeeded(false)
+                setView('planner')
+              }
+            }}
+          />
+        </main>
+      ) : view === 'mypage' ? (
         <main className={`app-main ${wide ? 'wide' : ''}`}>
           <MyPage
             trips={trips}
+            bookmarks={user ? bookmarks.bookmarks : null}
+            onRemoveBookmark={bookmarks.remove}
+            onOpenCommunity={() => setView('community')}
             selection={myPageSelection}
             onSelect={setMyPageSelection}
             onEditDay={editDay}
@@ -264,13 +414,20 @@ export default function App() {
                   >
                     조건 수정
                   </button>
-                  <button type="button" className="btn small primary" onClick={() => setSaveOpen(true)}>
+                  <button type="button" className="btn small primary" onClick={() => (user ? setSaveOpen(true) : setLoginNeeded(true))}>
                     💾 저장
                   </button>
                 </>
               }
               banner={
-                saveFailed ? (
+                loginNeeded && !user ? (
+                  <p className="notice error-notice">
+                    로그인 후 사용 가능한 기능입니다.{' '}
+                    <button type="button" className="link-btn" onClick={() => setView('login')}>
+                      로그인하기
+                    </button>
+                  </p>
+                ) : saveFailed ? (
                   <p className="notice error-notice">
                     이 브라우저에 저장하지 못했습니다. 저장 공간이나 사생활 보호 설정을 확인해 주세요.
                   </p>
@@ -338,6 +495,8 @@ export default function App() {
           )}
         </main>
       )}
+
+      <WelcomeNotice />
 
       {saveOpen && country && (
         <SaveDialog

@@ -1,15 +1,22 @@
 import { useMemo, useState } from 'react'
 import { findCountry, placesOf } from '../data/catalog'
+import type { Bookmark } from '../hooks/useBookmarks'
 import { useFetchRealLegs, useRealLegStore } from '../hooks/useRealLegs'
 import { buildSchedule } from '../lib/schedule'
 import { routeNote } from '../services/routes'
 import type { SavedDay, SavedTrip } from '../types'
+import { UserIcon } from './AuthPage'
 import ScheduleView from './ScheduleView'
+import ShareDialog from './ShareDialog'
 
 export type MyPageSelection = { tripId: string; dayNumber: number | null } | null
 
 type Props = {
   trips: SavedTrip[]
+  /** 로그인하지 않았으면 null */
+  bookmarks: Bookmark[] | null
+  onRemoveBookmark: (postId: string) => void
+  onOpenCommunity: () => void
   selection: MyPageSelection
   onSelect: (selection: MyPageSelection) => void
   onEditDay: (trip: SavedTrip, day: SavedDay) => void
@@ -89,6 +96,9 @@ function SavedDayView({ trip, day, onEdit, onDelete }: { trip: SavedTrip; day: S
 
 export default function MyPage({
   trips,
+  bookmarks,
+  onRemoveBookmark,
+  onOpenCommunity,
   selection,
   onSelect,
   onEditDay,
@@ -99,7 +109,15 @@ export default function MyPage({
   onNewPlan,
 }: Props) {
   const [renaming, setRenaming] = useState<string | null>(null)
+  const [sharing, setSharing] = useState<SavedTrip | null>(null)
   const trip = trips.find((t) => t.id === selection?.tripId)
+  const shareDialog = sharing && (
+    <ShareDialog
+      trip={sharing}
+      country={findCountry(sharing.countryCode)}
+      onClose={() => setSharing(null)}
+    />
+  )
 
   // 여행 상세
   if (trip) {
@@ -150,6 +168,9 @@ export default function MyPage({
               + 일차 추가
             </button>
           </div>
+          <button type="button" className="btn small" disabled={trip.days.length === 0} onClick={() => setSharing(trip)}>
+            📤 공유
+          </button>
         </div>
         {day ? (
           <SavedDayView
@@ -167,71 +188,139 @@ export default function MyPage({
             <p className="hint">저장된 일차가 없습니다. [+ 일차 추가]로 일정을 만들어 주세요.</p>
           </div>
         )}
+        {shareDialog}
       </div>
     )
   }
 
   // 여행 목록
   return (
-    <div className="wizard mypage">
-      <div className="schedule-head">
-        <h2 className="wizard-title">내 여행</h2>
-        <button type="button" className="btn small primary" onClick={onNewPlan}>
-          + 새 여행 계획
-        </button>
+    <>
+      <div className="wizard mypage">
+        <div className="schedule-head">
+          <h2 className="wizard-title">내 여행</h2>
+          <button type="button" className="btn small primary" onClick={onNewPlan}>
+            + 새 여행 계획
+          </button>
+        </div>
+
+        {trips.length === 0 ? (
+          <p className="hint">
+            아직 저장한 여행이 없습니다. 일정을 만든 뒤 결과 화면의 [저장] 버튼으로 1일차, 2일차처럼 저장할 수 있습니다.
+          </p>
+        ) : (
+          <ul className="trip-list">
+            {trips.map((t) => {
+              const c = findCountry(t.countryCode)
+              return (
+                <li key={t.id} className="trip-card">
+                  <button type="button" className="trip-card-main as-link" onClick={() => onSelect({ tripId: t.id, dayNumber: null })}>
+                    <div className="trip-card-title">
+                      {c?.flag} {t.name}
+                    </div>
+                    <div className="hint">
+                      {t.days.length}일 저장 · 마지막 수정 {formatDate(t.updatedAt)}
+                    </div>
+                  </button>
+                  <ul className="trip-days">
+                    {t.days.map((d) => (
+                      <li key={d.dayNumber}>
+                        <button
+                          type="button"
+                          className="as-link"
+                          onClick={() => onSelect({ tripId: t.id, dayNumber: d.dayNumber })}
+                        >
+                          <DaySummary day={d} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="trip-card-actions">
+                    <button type="button" className="btn small" onClick={() => onSelect({ tripId: t.id, dayNumber: null })}>
+                      열기
+                    </button>
+                    <button type="button" className="btn small" disabled={t.days.length === 0} onClick={() => setSharing(t)}>
+                      📤 공유
+                    </button>
+                    <button
+                      type="button"
+                      className="btn small danger"
+                      onClick={() => {
+                        if (window.confirm(`"${t.name}" 여행을 통째로 삭제할까요? (${t.days.length}일 일정)`)) onDeleteTrip(t)
+                      }}
+                    >
+                      여행 삭제
+                    </button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+        <p className="hint">저장한 일정은 지금 사용하는 브라우저에만 보관됩니다.</p>
       </div>
 
-      {trips.length === 0 ? (
-        <p className="hint">
-          아직 저장한 여행이 없습니다. 일정을 만든 뒤 결과 화면의 [저장] 버튼으로 1일차, 2일차처럼 저장할 수 있습니다.
-        </p>
-      ) : (
-        <ul className="trip-list">
-          {trips.map((t) => {
-            const c = findCountry(t.countryCode)
-            return (
-              <li key={t.id} className="trip-card">
-                <button type="button" className="trip-card-main as-link" onClick={() => onSelect({ tripId: t.id, dayNumber: null })}>
-                  <div className="trip-card-title">
-                    {c?.flag} {t.name}
+      {/* 커뮤니티에서 즐겨찾기한 다른 사람의 여행이 모일 자리 (커뮤니티 기능을 붙이면 채움) */}
+      <div className="wizard mypage">
+        <div className="schedule-head">
+          <h2 className="wizard-title">찜한 여행</h2>
+        </div>
+        {bookmarks === null ? (
+          <p className="hint">로그인하면 커뮤니티에서 찜한 여행을 여기서 볼 수 있습니다.</p>
+        ) : bookmarks.length === 0 ? (
+          <p className="hint">
+            아직 찜한 여행이 없습니다. 커뮤니티에서 마음에 드는 여행의 🔖를 누르면 여기에 모입니다.{' '}
+            <button type="button" className="link-btn" onClick={onOpenCommunity}>
+              커뮤니티 둘러보기
+            </button>
+          </p>
+        ) : (
+          <ul className="trip-list">
+            {bookmarks.map((b) => {
+              const c = findCountry(b.trip.countryCode)
+              return (
+                <li key={b.postId} className="trip-card">
+                  <div className="bookmark-author">
+                    <UserIcon icon={b.author.icon} />
+                    <span>{b.author.nickname}</span>
+                    <span className="hint">· 찜한 날 {formatDate(b.savedAt)}</span>
                   </div>
-                  <div className="hint">
-                    {t.days.length}일 저장 · 마지막 수정 {formatDate(t.updatedAt)}
-                  </div>
-                </button>
-                <ul className="trip-days">
-                  {t.days.map((d) => (
-                    <li key={d.dayNumber}>
-                      <button
-                        type="button"
-                        className="as-link"
-                        onClick={() => onSelect({ tripId: t.id, dayNumber: d.dayNumber })}
-                      >
+                  <button type="button" className="trip-card-main as-link" onClick={() => setSharing(b.trip)}>
+                    <div className="trip-card-title">
+                      {c?.flag} {b.trip.name}
+                    </div>
+                    <div className="hint">
+                      {c?.name ?? b.trip.countryCode} · {b.trip.days.length}일 일정
+                    </div>
+                  </button>
+                  <ul className="trip-days">
+                    {b.trip.days.map((d) => (
+                      <li key={d.dayNumber}>
                         <DaySummary day={d} />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                <div className="trip-card-actions">
-                  <button type="button" className="btn small" onClick={() => onSelect({ tripId: t.id, dayNumber: null })}>
-                    열기
-                  </button>
-                  <button
-                    type="button"
-                    className="btn small danger"
-                    onClick={() => {
-                      if (window.confirm(`"${t.name}" 여행을 통째로 삭제할까요? (${t.days.length}일 일정)`)) onDeleteTrip(t)
-                    }}
-                  >
-                    여행 삭제
-                  </button>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
-      )}
-      <p className="hint">저장한 일정은 지금 사용하는 브라우저에만 보관됩니다.</p>
-    </div>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="trip-card-actions">
+                    <button type="button" className="btn small" onClick={() => setSharing(b.trip)}>
+                      일정 보기
+                    </button>
+                    <button
+                      type="button"
+                      className="btn small danger"
+                      onClick={() => {
+                        if (window.confirm(`"${b.trip.name}"을(를) 찜한 여행에서 뺄까요?`)) onRemoveBookmark(b.postId)
+                      }}
+                    >
+                      찜 해제
+                    </button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
+      {shareDialog}
+    </>
   )
 }
