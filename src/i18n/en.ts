@@ -392,4 +392,11 @@ export const en: Record<string, string> = {
   'Safari 주소창 우측의 삼선 모양 버튼(☰)을 누른 뒤 [공유]를 누르세요.': 'In Safari, tap the ☰ (three-line) button on the right of the address bar, then tap [Share].',
   '삼선 버튼이 없으면 화면 아래쪽(아이패드는 위쪽)의 공유 버튼 □↑ 을 누르세요.': 'No ☰ button? Tap the Share button □↑ at the bottom of the screen (top on iPad).',
   '목록을 위로 올려 [홈 화면에 추가]를 누르세요. 안 보이면 맨 아래 [더 보기]에서 찾을 수 있어요.': 'Scroll up and tap [Add to Home Screen]. If it isn\'t there, look under [More] at the bottom.',
+  // 글쓰기 — 일정 이미지 배경
+  '일정 이미지 배경': 'Plan image background',
+  '기본': 'Default',
+  '나라 사진': 'Country photo',
+  '내 사진': 'My photo',
+  '+ 사진 올리기': '+ Upload photo',
+  '일정 이미지 미리보기': 'Plan image preview',
 }

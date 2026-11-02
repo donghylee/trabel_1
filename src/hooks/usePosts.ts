@@ -41,12 +41,15 @@ export function usePosts(user: SessionUser | null) {
     }
     if (serverEnabled) {
       // 사진은 먼저 저장소(Storage)에 올리고, 글에는 주소만 넣음
-      const photos = await uploadPhotos('post-photos', user.id, post.photos ?? [])
-      if (!photos) return null
-      const saved = await insertServerPost({ ...post, photos }, user.id)
+      // 일정 이미지 배경도 직접 올린 사진이면 함께 올림 (나라 사진은 앱 안 주소 그대로)
+      const uploaded = await uploadPhotos('post-photos', user.id, [...(post.photos ?? []), ...(post.cover ? [post.cover] : [])])
+      if (!uploaded) return null
+      const photos = post.cover ? uploaded.slice(0, -1) : uploaded
+      const cover = post.cover ? uploaded[uploaded.length - 1] : undefined
+      const saved = await insertServerPost({ ...post, photos, cover }, user.id)
       if (saved) setPosts((prev) => [saved, ...prev])
       // 글 저장에 실패하면 올려 둔 사진도 지움
-      else void deletePhotos('post-photos', photos)
+      else void deletePhotos('post-photos', uploaded)
       return saved
     }
     const saved: FeedPost = { ...post, id: `my-${Date.now().toString(36)}`, postedAt: new Date().toISOString() }
@@ -62,7 +65,8 @@ export function usePosts(user: SessionUser | null) {
     const ok = serverEnabled ? await deleteServerPost(postId) : savePosts(next)
     if (!ok) return false
     // 글에 붙였던 사진도 저장소에서 지움
-    if (serverEnabled) void deletePhotos('post-photos', posts.find((p) => p.id === postId)?.photos ?? [])
+    const removed = posts.find((p) => p.id === postId)
+    if (serverEnabled) void deletePhotos('post-photos', [...(removed?.photos ?? []), ...(removed?.cover ? [removed.cover] : [])])
     setPosts(next)
     return true
   }

@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { findCountry, tripTitle } from '../data/catalog'
 import { t } from '../i18n'
 import { resizeImage } from '../lib/image'
 import { parseTags } from '../lib/posts'
+import { renderTripImage } from '../lib/shareImage'
 import type { SavedTrip } from '../types'
 
 type Props = {
@@ -10,11 +11,15 @@ type Props = {
   onCancel: () => void
   /** 올리지 못했으면 이유를 돌려줌 */
   /** 실패하면 안내 문구, 성공하면 null */
-  onSubmit: (post: { trip: SavedTrip; caption: string; tags: string[]; photos: string[] }) => Promise<string | null>
+  onSubmit: (post: { trip: SavedTrip; caption: string; tags: string[]; photos: string[]; cover?: string }) => Promise<string | null>
   onNewPlan: () => void
 }
 
 const MAX_PHOTOS = 4
+
+/** 일정 이미지 배경: 기본(주황 머리글) / 나라 대표 사진 / 직접 올린 사진 */
+type CoverKind = 'none' | 'country' | 'upload'
+const countryPhoto = (code: string) => `/countries/${code}.jpg`
 
 /** 커뮤니티 글쓰기 — 내 여행 하나를 골라 소개글·태그와 함께 올림 */
 export default function WriteDialog({ trips, onCancel, onSubmit, onNewPlan }: Props) {
@@ -26,6 +31,47 @@ export default function WriteDialog({ trips, onCancel, onSubmit, onNewPlan }: Pr
   const [loadingPhotos, setLoadingPhotos] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [coverKind, setCoverKind] = useState<CoverKind>('none')
+  const [uploadedCover, setUploadedCover] = useState<string | null>(null)
+  const [preview, setPreview] = useState<string | null>(null)
+
+  const trip = shareable.find((item) => item.id === tripId)
+  const cover =
+    coverKind === 'country' && trip ? countryPhoto(trip.countryCode) : coverKind === 'upload' ? uploadedCover ?? undefined : undefined
+
+  // 고른 배경으로 일정 이미지 미리보기 (피드에 보일 모습 그대로)
+  useEffect(() => {
+    if (!trip) return
+    let made: string | null = null
+    let cancelled = false
+    renderTripImage(trip, findCountry(trip.countryCode), cover).then(
+      (blob) => {
+        if (cancelled) return
+        made = URL.createObjectURL(blob)
+        setPreview(made)
+      },
+      () => {},
+    )
+    return () => {
+      cancelled = true
+      if (made) URL.revokeObjectURL(made)
+    }
+  }, [trip, cover])
+
+  async function chooseCoverFile(file: File | undefined) {
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setError(t('이미지 파일만 올릴 수 있습니다.'))
+      return
+    }
+    try {
+      setUploadedCover(await resizeImage(file))
+      setCoverKind('upload')
+      setError(null)
+    } catch {
+      setError(t('읽지 못한 사진이 있습니다. 다른 파일로 시도해 주세요.'))
+    }
+  }
 
   async function addPhotos(files: FileList | null) {
     if (!files?.length) return
@@ -48,7 +94,6 @@ export default function WriteDialog({ trips, onCancel, onSubmit, onNewPlan }: Pr
   }
 
   async function submit() {
-    const trip = shareable.find((item) => item.id === tripId)
     if (!trip) {
       setError(t('올릴 여행을 골라 주세요.'))
       return
@@ -58,7 +103,7 @@ export default function WriteDialog({ trips, onCancel, onSubmit, onNewPlan }: Pr
       return
     }
     setSubmitting(true)
-    const failure = await onSubmit({ trip, caption: caption.trim(), tags: parseTags(tags), photos })
+    const failure = await onSubmit({ trip, caption: caption.trim(), tags: parseTags(tags), photos, cover })
     setSubmitting(false)
     if (failure) setError(failure)
   }
@@ -118,6 +163,58 @@ export default function WriteDialog({ trips, onCancel, onSubmit, onNewPlan }: Pr
                     </label>
                   )
                 })}
+              </div>
+            </fieldset>
+
+            <fieldset className="dialog-field">
+              <legend>{t('일정 이미지 배경')}</legend>
+              <div className="cover-choices" role="radiogroup" aria-label={t('일정 이미지 배경')}>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={coverKind === 'none'}
+                  className={`cover-choice plain ${coverKind === 'none' ? 'selected' : ''}`}
+                  onClick={() => setCoverKind('none')}
+                >
+                  <span>{t('기본')}</span>
+                </button>
+                {trip && (
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={coverKind === 'country'}
+                    className={`cover-choice ${coverKind === 'country' ? 'selected' : ''}`}
+                    style={{ backgroundImage: `url(${countryPhoto(trip.countryCode)})` }}
+                    onClick={() => setCoverKind('country')}
+                  >
+                    <span>{t('나라 사진')}</span>
+                  </button>
+                )}
+                <label
+                  className={`cover-choice upload ${coverKind === 'upload' ? 'selected' : ''}`}
+                  style={uploadedCover ? { backgroundImage: `url(${uploadedCover})` } : undefined}
+                  onClick={(e) => {
+                    // 이미 올린 사진이 있으면 누를 때 그 사진으로 고르기만 (바꾸려면 다시 누르면 파일 창)
+                    if (uploadedCover && coverKind !== 'upload') {
+                      e.preventDefault()
+                      setCoverKind('upload')
+                    }
+                  }}
+                >
+                  <span>{uploadedCover ? t('내 사진') : t('+ 사진 올리기')}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={(e) => {
+                      chooseCoverFile(e.target.files?.[0])
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
+              </div>
+              <div className="cover-preview">
+                {preview ? <img src={preview} alt={t('일정 이미지 미리보기')} /> : <p className="hint">{t('일정 불러오는 중…')}</p>}
               </div>
             </fieldset>
 

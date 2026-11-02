@@ -17,6 +17,8 @@ type FeedRow = {
   caption: string
   tags: string[]
   photos: string[]
+  /** 2026-11 추가 (supabase/migrations/003_post_cover.sql) — 그 전 DB에는 없음 */
+  cover?: string | null
   like_count: number
   created_at: string
 }
@@ -28,6 +30,7 @@ const toPost = (r: FeedRow): FeedPost => ({
   caption: r.caption,
   tags: r.tags,
   photos: r.photos,
+  cover: r.cover ?? undefined,
   // 서버 수에는 내 좋아요도 들어 있음 — 화면(PostCard)에서 내 것을 빼고 다시 더함
   likeCount: r.like_count,
   // 댓글은 글마다 따로 받아 옴 (lib/reactions)
@@ -51,7 +54,15 @@ export async function insertServerPost(post: Omit<FeedPost, 'id' | 'postedAt'>, 
   if (!supabase) return null
   const { data, error } = await supabase
     .from('posts')
-    .insert({ author_id: userId, trip_snapshot: post.trip, caption: post.caption, tags: post.tags, photos: post.photos ?? [] })
+    .insert({
+      author_id: userId,
+      trip_snapshot: post.trip,
+      caption: post.caption,
+      tags: post.tags,
+      photos: post.photos ?? [],
+      // 배경을 고르지 않았으면 열을 아예 보내지 않음 (cover 열을 추가하기 전 DB에서도 글쓰기가 되게)
+      ...(post.cover ? { cover: post.cover } : {}),
+    })
     .select('id, created_at')
     .single<{ id: string; created_at: string }>()
   return error || !data ? null : { ...post, id: data.id, postedAt: data.created_at }

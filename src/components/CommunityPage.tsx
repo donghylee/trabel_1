@@ -60,15 +60,17 @@ export default function CommunityPage({
     caption,
     tags,
     photos,
+    cover,
   }: {
     trip: SavedTrip
     caption: string
     tags: string[]
     photos: string[]
+    cover?: string
   }): Promise<string | null> {
     if (!user) return t('로그인 후 사용 가능한 기능입니다.')
     // 올린 뒤 내 여행을 고쳐도 게시물은 그대로 남게 복사본으로
-    const saved = await feed.publish({ trip: structuredClone(trip), caption, tags, photos })
+    const saved = await feed.publish({ trip: structuredClone(trip), caption, tags, photos, cover })
     // 실패하면 올리지 않고 글쓰기 창에서 안내
     if (!saved)
       return serverEnabled
@@ -179,8 +181,8 @@ function timeAgo(iso: string): string {
   return t('{month}월 {day}일', { month: d.getMonth() + 1, day: d.getDate() })
 }
 
-/** 일정 요약 이미지 (공유 이미지와 같은 그림) */
-function TripImage({ trip, country }: { trip: SavedTrip; country: Country | undefined }) {
+/** 일정 요약 이미지 (공유 이미지와 같은 그림, cover가 있으면 사진 배경) */
+function TripImage({ trip, country, cover }: { trip: SavedTrip; country: Country | undefined; cover?: string }) {
   const [url, setUrl] = useState<string | null>(null)
   const [expanded, setExpanded] = useState(false)
   // 세로 4:5보다 긴 일정만 접어 두고 [전체 일정 보기]로 펼침
@@ -189,7 +191,7 @@ function TripImage({ trip, country }: { trip: SavedTrip; country: Country | unde
   useEffect(() => {
     let made: string | null = null
     let cancelled = false
-    renderTripImage(trip, country).then(
+    renderTripImage(trip, country, cover).then(
       (blob) => {
         if (cancelled) return
         made = URL.createObjectURL(blob)
@@ -201,7 +203,7 @@ function TripImage({ trip, country }: { trip: SavedTrip; country: Country | unde
       cancelled = true
       if (made) URL.revokeObjectURL(made)
     }
-  }, [trip, country])
+  }, [trip, country, cover])
 
   return (
     <div className={`post-image ${url ? '' : 'loading'} ${tall && !expanded ? 'collapsed' : ''}`}>
@@ -224,11 +226,21 @@ function TripImage({ trip, country }: { trip: SavedTrip; country: Country | unde
 }
 
 /** 일정 이미지 + 함께 올린 사진을 옆으로 넘겨 보기 */
-function PostMedia({ trip, country, photos }: { trip: SavedTrip; country: Country | undefined; photos: string[] }) {
+function PostMedia({
+  trip,
+  country,
+  photos,
+  cover,
+}: {
+  trip: SavedTrip
+  country: Country | undefined
+  photos: string[]
+  cover?: string
+}) {
   const [index, setIndex] = useState(0)
   const touchX = useRef<number | null>(null)
   const count = photos.length + 1
-  if (count === 1) return <TripImage trip={trip} country={country} />
+  if (count === 1) return <TripImage trip={trip} country={country} cover={cover} />
 
   const go = (next: number) => setIndex(Math.max(0, Math.min(count - 1, next)))
 
@@ -244,7 +256,7 @@ function PostMedia({ trip, country, photos }: { trip: SavedTrip; country: Countr
       }}
     >
       {index === 0 ? (
-        <TripImage trip={trip} country={country} />
+        <TripImage trip={trip} country={country} cover={cover} />
       ) : (
         <div className="post-photo">
           <img src={photos[index - 1]} alt={t('{name} 사진 {n}', { name: tripTitle(trip), n: index })} />
@@ -495,7 +507,7 @@ function PostCard({
         )}
       </header>
 
-      <PostMedia trip={post.trip} country={country} photos={post.photos ?? []} />
+      <PostMedia trip={post.trip} country={country} photos={post.photos ?? []} cover={post.cover} />
 
       <div className="post-actions">
         <button

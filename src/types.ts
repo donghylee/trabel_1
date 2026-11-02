@@ -202,6 +202,8 @@ export type FeedPost = {
   tags: string[]
   /** 글쓴이가 함께 올린 사진 (data URL 또는 주소) */
   photos?: string[]
+  /** 일정 이미지 배경 사진 (없으면 기본 주황 머리글) — 나라 사진(/countries/..) 또는 올린 사진 주소 */
+  cover?: string
   /** 다른 사람들이 누른 좋아요 수 (내가 누른 것은 따로 기억해서 더함) */
   likeCount: number
   /** 게시물에 처음부터 있던 댓글 (내가 단 댓글은 따로 기억해서 붙임) */

@@ -89,7 +89,31 @@ function wrap(ctx: CanvasRenderingContext2D, parts: string[], maxWidth: number):
   return lines
 }
 
-export async function renderTripImage(trip: SavedTrip, country: Country | undefined): Promise<Blob> {
+/** 배경 사진 불러오기 — 저장소 사진도 canvas에서 쓸 수 있게 crossOrigin. 실패하면 null(기본 배경) */
+function loadImage(src: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => resolve(img)
+    img.onerror = () => resolve(null)
+    img.src = src
+  })
+}
+
+/** 사진을 비율 유지한 채 영역을 꽉 채우게 (넘치는 부분은 잘림) */
+function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, width: number, height: number) {
+  const scale = Math.max(width / img.width, height / img.height)
+  const w = img.width * scale
+  const h = img.height * scale
+  ctx.drawImage(img, (width - w) / 2, (height - h) / 2, w, h)
+}
+
+/**
+ * 일정 요약 이미지. background(사진 주소)가 있으면 사진을 배경에 깔고,
+ * 글자와 일차별 창(카드)은 그대로 위에 얹는다.
+ */
+export async function renderTripImage(trip: SavedTrip, country: Country | undefined, background?: string): Promise<Blob> {
+  const photo = background ? await loadImage(background) : null
   // Pretendard 웹폰트는 화면에 나온 글자 묶음만 받아 오므로, 이미지에 쓸 글자를 굵기별로 미리 받아 둠
   const sample = [
     tripTitle(trip),
@@ -132,11 +156,26 @@ export async function renderTripImage(trip: SavedTrip, country: Country | undefi
   canvas.height = height
 
   // 배경 + 머리글
-  ctx.fillStyle = COLORS.bg
-  ctx.fillRect(0, 0, WIDTH, height)
-  ctx.fillStyle = COLORS.accent
-  ctx.fillRect(0, 0, WIDTH, headerHeight - 24)
+  if (photo) {
+    // 사진 배경 — 흰 글자가 잘 보이게 위·아래를 어둡게
+    drawCover(ctx, photo, WIDTH, height)
+    const shade = ctx.createLinearGradient(0, 0, 0, height)
+    shade.addColorStop(0, 'rgba(0,0,0,0.55)')
+    shade.addColorStop(Math.min(0.5, headerHeight / height), 'rgba(0,0,0,0.25)')
+    shade.addColorStop(1, 'rgba(0,0,0,0.5)')
+    ctx.fillStyle = shade
+    ctx.fillRect(0, 0, WIDTH, height)
+  } else {
+    ctx.fillStyle = COLORS.bg
+    ctx.fillRect(0, 0, WIDTH, height)
+    ctx.fillStyle = COLORS.accent
+    ctx.fillRect(0, 0, WIDTH, headerHeight - 24)
+  }
   ctx.textBaseline = 'top'
+  if (photo) {
+    ctx.shadowColor = 'rgba(0,0,0,0.45)'
+    ctx.shadowBlur = 8
+  }
   ctx.fillStyle = 'rgba(255,255,255,0.8)'
   ctx.font = font(26, 600)
   ctx.fillText('PLAN:J', PAD, 40)
@@ -146,12 +185,15 @@ export async function renderTripImage(trip: SavedTrip, country: Country | undefi
   ctx.fillText(wrap(ctx, [title], WIDTH - PAD * 2)[0] ?? title, PAD, 78)
   ctx.font = font(28, 500)
   ctx.fillText(`${country?.name ?? trip.countryCode} · ${t('{n}일 일정', { n: trip.days.length })}`, PAD, 146)
+  ctx.shadowColor = 'transparent'
+  ctx.shadowBlur = 0
 
   // 일차별 카드
   let y = headerHeight
   for (const day of days) {
-    ctx.fillStyle = COLORS.panel
-    ctx.strokeStyle = COLORS.border
+    // 사진 배경일 때는 살짝 비치는 흰 창
+    ctx.fillStyle = photo ? 'rgba(255,255,255,0.92)' : COLORS.panel
+    ctx.strokeStyle = photo ? 'rgba(255,255,255,0.7)' : COLORS.border
     ctx.lineWidth = 2
     ctx.beginPath()
     ctx.roundRect(PAD, y, WIDTH - PAD * 2, day.height, 20)
@@ -174,7 +216,7 @@ export async function renderTripImage(trip: SavedTrip, country: Country | undefi
     y += day.height + 24
   }
 
-  ctx.fillStyle = COLORS.muted
+  ctx.fillStyle = photo ? 'rgba(255,255,255,0.9)' : COLORS.muted
   ctx.font = font(22)
   ctx.fillText(`PLAN:J · ${t('계획하는 순간, 여행이 시작된다')}`, PAD, height - footerHeight + 24)
 

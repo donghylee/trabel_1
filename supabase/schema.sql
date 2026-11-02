@@ -78,6 +78,7 @@ create table if not exists public.posts (
   caption text not null default '',
   tags text[] not null default '{}',
   photos text[] not null default '{}',    -- Storage 'post-photos' 버킷의 공개 주소
+  cover text,                             -- 일정 이미지 배경 사진 (나라 사진 /countries/.. 또는 Storage 주소, 없으면 기본)
   created_at timestamptz not null default now()
 );
 create index if not exists posts_created_idx on public.posts (created_at desc);
