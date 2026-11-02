@@ -53,6 +53,6 @@
 - [ ] 10. PWA 적용 (마지막에 — 개발 중 캐시 혼란 방지)
   - [x] 10-1. 아이콘(192·512·maskable·apple-touch-icon), vite-plugin-pwa, manifest(PLAN:J, #F86A07, standalone)
   - [x] 10-2. autoUpdate로 push할 때마다 자동 업데이트(다음에 열 때 적용), config.js는 캐시에서 빼기, Pretendard 글꼴은 캐시
-  - [ ] 10-3. Vercel 배포 후 폰에서 설치 확인 (Chrome 개발자도구 Application·Lighthouse)
+  - [ ] 10-3. Vercel 배포 후 폰에서 설치 확인 — 안드로이드 설치 확인, 헤더에 [앱 설치] 버튼(아이폰은 홈 화면 추가 안내) 추가, 남은 일: 아이폰 확인
 - [ ] 11. 지인 테스트: 링크 + 설치 방법 공유 (안드로이드 "앱 설치", iPhone Safari 공유 → 홈 화면에 추가) → 피드백 반영
   - 화면만 먼저 보여주고 싶으면 7 도중에 10만 먼저 해도 됨 (이때 9-1은 꼭 먼저, 로그인·커뮤니티는 "내 폰에만 저장"이라고 안내)

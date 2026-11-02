@@ -3,6 +3,7 @@ import logo from './assets/logo.png'
 import AuthPage, { UserIcon } from './components/AuthPage'
 import CommunityPage from './components/CommunityPage'
 import ConfirmHost from './components/ConfirmDialog'
+import InstallButton from './components/InstallButton'
 import MyPage, { type MyPageSelection } from './components/MyPage'
 import SaveDialog from './components/SaveDialog'
 import ScheduleView from './components/ScheduleView'
@@ -338,6 +339,8 @@ export default function App() {
                 </ul>
               )}
             </div>
+            {/* 홈 화면에 설치할 수 있을 때만 보임 */}
+            <InstallButton />
             {user ? (
               <div ref={accountMenuRef} className={`tab-menu ${view === 'login' ? 'active' : ''}`}>
                 <button

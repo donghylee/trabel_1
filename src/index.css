@@ -1360,3 +1360,26 @@ div.stop-body > .as-link { width: 100%; }
 .confirm-dialog { max-width: 360px; gap: 20px; }
 .confirm-message { font-size: 15px; line-height: 1.6; white-space: pre-line; }
 .confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* 헤더의 [앱 설치] — 설치할 수 있을 때만 보임 (주요 버튼이 아니라 작은 테두리 버튼) */
+.header-tabs .install-btn {
+  align-self: center;
+  height: 30px;
+  padding: 0 10px;
+  gap: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.header-tabs .install-btn:hover { background: var(--bg); }
+.install-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+/* 아주 좁은 화면에서는 아이콘만 */
+@media (max-width: 360px) {
+  .install-btn .install-label { display: none; }
+  .header-tabs .install-btn { padding: 0 7px; }
+}
+.install-dialog { max-width: 400px; }
+.install-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 1.6; }

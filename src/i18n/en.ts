@@ -382,4 +382,11 @@ export const en: Record<string, string> = {
   '글을 불러오지 못했습니다. 새로고침해 주세요.': 'Couldn\'t load posts. Please refresh.',
   '글을 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.': 'Couldn\'t delete the post. Please try again later.',
   '저장한 일정은 계정에 보관되어 다른 기기에서 로그인해도 볼 수 있습니다.': 'Saved plans are kept in your account, so you can see them on any device.',
+  // 앱 설치 (PWA)
+  '앱 설치': 'Install app',
+  '홈 화면에 PLAN:J 추가하기': 'Add PLAN:J to your Home Screen',
+  'Safari 아래쪽(아이패드는 위쪽)의 공유 버튼 □↑ 을 누르세요.': 'Tap the Share button □↑ at the bottom of Safari (top on iPad).',
+  '목록을 올려 [홈 화면에 추가]를 누르세요.': 'Scroll up and tap [Add to Home Screen].',
+  '오른쪽 위 [추가]를 누르면 홈 화면에 PLAN:J 아이콘이 생깁니다.': 'Tap [Add] at the top right — the PLAN:J icon appears on your Home Screen.',
+  'Safari가 아닌 앱(카카오톡 등)에서 열었다면, Safari로 다시 열어 주세요.': 'If you opened this in another app (like KakaoTalk), open it again in Safari.',
 }
