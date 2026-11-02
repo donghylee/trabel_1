@@ -1383,3 +1383,4 @@ div.stop-body > .as-link { width: 100%; }
 }
 .install-dialog { max-width: 400px; }
 .install-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 1.6; }
+.install-alt { display: block; margin-top: 2px; font-size: 13px; color: var(--muted); }

@@ -383,12 +383,13 @@ export const en: Record<string, string> = {
   // 앱 설치 (PWA)
   '앱 설치': 'Install app',
   '홈 화면에 PLAN:J 추가하기': 'Add PLAN:J to your Home Screen',
-  'Safari 아래쪽(아이패드는 위쪽)의 공유 버튼 □↑ 을 누르세요.': 'Tap the Share button □↑ at the bottom of Safari (top on iPad).',
-  '목록을 올려 [홈 화면에 추가]를 누르세요.': 'Scroll up and tap [Add to Home Screen].',
   '오른쪽 위 [추가]를 누르면 홈 화면에 PLAN:J 아이콘이 생깁니다.': 'Tap [Add] at the top right — the PLAN:J icon appears on your Home Screen.',
   'Safari가 아닌 앱(카카오톡 등)에서 열었다면, Safari로 다시 열어 주세요.': 'If you opened this in another app (like KakaoTalk), open it again in Safari.',
   // 예시 게시물 (실제 글이 없을 때만)
   '아직 올라온 여행이 없어 예시 게시물을 보여 드려요. [글쓰기]로 첫 여행을 올려 보세요!': 'No trips have been shared yet, so here are some sample posts. Share the first one with [Write]!',
   'PLAN:J 사용자들이 올린 여행입니다.': 'Trips shared by PLAN:J users.',
   '이 브라우저에서 올린 글만 보입니다. 서버를 연결하면 다른 사람이 올린 여행도 나옵니다.': 'Only posts from this browser are shown. Connect the server to see trips from other people.',
+  'Safari 주소창 옆의 ⋯ 버튼을 누른 뒤 [공유]를 누르세요.': 'In Safari, tap the ⋯ button next to the address bar, then tap [Share].',
+  '⋯ 버튼이 없으면 화면 아래쪽(아이패드는 위쪽)의 공유 버튼 □↑ 을 누르세요.': 'No ⋯ button? Tap the Share button □↑ at the bottom of the screen (top on iPad).',
+  '목록을 위로 올려 [홈 화면에 추가]를 누르세요. 안 보이면 맨 아래 [더 보기]에서 찾을 수 있어요.': 'Scroll up and tap [Add to Home Screen]. If it isn\'t there, look under [More] at the bottom.',
 }

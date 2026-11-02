@@ -38,8 +38,14 @@ export default function InstallButton() {
                 {t('홈 화면에 PLAN:J 추가하기')}
               </h2>
               <ol className="install-steps">
-                <li>{t('Safari 아래쪽(아이패드는 위쪽)의 공유 버튼 □↑ 을 누르세요.')}</li>
-                <li>{t('목록을 올려 [홈 화면에 추가]를 누르세요.')}</li>
+                {/* Safari 화면 배치가 iOS 버전마다 달라서 (iOS 26부터는 공유가 ⋯ 메뉴 안) 두 경우를 모두 안내 */}
+                <li>
+                  {t('Safari 주소창 옆의 ⋯ 버튼을 누른 뒤 [공유]를 누르세요.')}
+                  <span className="install-alt">
+                    {t('⋯ 버튼이 없으면 화면 아래쪽(아이패드는 위쪽)의 공유 버튼 □↑ 을 누르세요.')}
+                  </span>
+                </li>
+                <li>{t('목록을 위로 올려 [홈 화면에 추가]를 누르세요. 안 보이면 맨 아래 [더 보기]에서 찾을 수 있어요.')}</li>
                 <li>{t('오른쪽 위 [추가]를 누르면 홈 화면에 PLAN:J 아이콘이 생깁니다.')}</li>
               </ol>
               <p className="hint">{t('Safari가 아닌 앱(카카오톡 등)에서 열었다면, Safari로 다시 열어 주세요.')}</p>
