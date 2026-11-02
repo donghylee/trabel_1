@@ -269,7 +269,6 @@ export const en: Record<string, string> = {
   '저장 공간이 부족합니다. 사진 수를 줄이거나 예전 글을 지운 뒤 다시 올려 주세요.': 'Not enough storage space. Use fewer photos or delete older posts, then try again.',
   '커뮤니티에 글을 올렸습니다.': 'Posted to the community.',
   '나라별 보기': 'Filter by country',
-  '지금은 예시 게시물과 이 브라우저에서 올린 글만 보입니다. 서버를 연결하면 다른 사람이 올린 여행도 나옵니다.': 'For now you see sample posts and posts made in this browser. Once a server is connected, other people\'s trips will show here too.',
   '이 글을 삭제할까요?': 'Delete this post?',
   '글을 삭제했습니다.': 'Post deleted.',
   '방금': 'just now',
@@ -377,7 +376,6 @@ export const en: Record<string, string> = {
   // 서버 저장 (Supabase)
   '서버에 저장하지 못했습니다. 인터넷 연결을 확인한 뒤 다시 저장해 주세요.': 'Couldn\'t save to the server. Check your connection and save again.',
   '글을 올리지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.': 'Couldn\'t post. Check your connection and try again.',
-  'PLAN:J 사용자들이 올린 여행과 예시 게시물이 함께 보입니다.': 'Trips shared by PLAN:J users are shown along with sample posts.',
   '글을 불러오는 중…': 'Loading posts…',
   '글을 불러오지 못했습니다. 새로고침해 주세요.': 'Couldn\'t load posts. Please refresh.',
   '글을 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.': 'Couldn\'t delete the post. Please try again later.',
@@ -389,4 +387,8 @@ export const en: Record<string, string> = {
   '목록을 올려 [홈 화면에 추가]를 누르세요.': 'Scroll up and tap [Add to Home Screen].',
   '오른쪽 위 [추가]를 누르면 홈 화면에 PLAN:J 아이콘이 생깁니다.': 'Tap [Add] at the top right — the PLAN:J icon appears on your Home Screen.',
   'Safari가 아닌 앱(카카오톡 등)에서 열었다면, Safari로 다시 열어 주세요.': 'If you opened this in another app (like KakaoTalk), open it again in Safari.',
+  // 예시 게시물 (실제 글이 없을 때만)
+  '아직 올라온 여행이 없어 예시 게시물을 보여 드려요. [글쓰기]로 첫 여행을 올려 보세요!': 'No trips have been shared yet, so here are some sample posts. Share the first one with [Write]!',
+  'PLAN:J 사용자들이 올린 여행입니다.': 'Trips shared by PLAN:J users.',
+  '이 브라우저에서 올린 글만 보입니다. 서버를 연결하면 다른 사람이 올린 여행도 나옵니다.': 'Only posts from this browser are shown. Connect the server to see trips from other people.',
 }

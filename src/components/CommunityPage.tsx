@@ -26,7 +26,7 @@ type Props = {
   onToggleBookmark: (post: FeedPost) => void
 }
 
-/** 여행 일정을 공유하는 피드 — 사람들이 올린 글(서버, 없으면 이 브라우저) + 예시 게시물(getMockFeed) */
+/** 여행 일정을 공유하는 피드 — 사람들이 올린 글(서버, 없으면 이 브라우저). 올라온 글이 하나도 없을 때만 예시 게시물(getMockFeed) */
 export default function CommunityPage({
   user,
   trips,
@@ -49,7 +49,9 @@ export default function CommunityPage({
     return () => clearTimeout(timer)
   }, [notice])
 
-  const allPosts: FeedPost[] = [...feed.posts, ...getMockFeed()]
+  // 실제 글이 생기면 예시는 숨김 (불러오는 중에는 예시가 잠깐 보였다 사라지지 않게 비워 둠)
+  const showingSamples = !feed.loading && feed.posts.length === 0
+  const allPosts: FeedPost[] = showingSamples ? getMockFeed() : feed.posts
   const countries = [...new Set(allPosts.map((p) => p.trip.countryCode))]
   const posts = filter ? allPosts.filter((p) => p.trip.countryCode === filter) : allPosts
 
@@ -121,11 +123,15 @@ export default function CommunityPage({
         </p>
       )}
       {notice && <p className={`notice ${notice.ok ? 'success' : 'error-notice'}`}>{notice.text}</p>}
-      <p className="notice feed-notice">
-        {serverEnabled
-          ? t('PLAN:J 사용자들이 올린 여행과 예시 게시물이 함께 보입니다.')
-          : t('지금은 예시 게시물과 이 브라우저에서 올린 글만 보입니다. 서버를 연결하면 다른 사람이 올린 여행도 나옵니다.')}
-      </p>
+      {!feed.loading && (
+        <p className="notice feed-notice">
+          {showingSamples
+            ? t('아직 올라온 여행이 없어 예시 게시물을 보여 드려요. [글쓰기]로 첫 여행을 올려 보세요!')
+            : serverEnabled
+              ? t('PLAN:J 사용자들이 올린 여행입니다.')
+              : t('이 브라우저에서 올린 글만 보입니다. 서버를 연결하면 다른 사람이 올린 여행도 나옵니다.')}
+        </p>
+      )}
       {feed.loading && <p className="hint">{t('글을 불러오는 중…')}</p>}
       {feed.loadFailed && <p className="notice error-notice">{t('글을 불러오지 못했습니다. 새로고침해 주세요.')}</p>}
       {posts.map((post) => (
