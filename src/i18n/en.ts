@@ -357,7 +357,6 @@ export const en: Record<string, string> = {
   '장소가 하나뿐이라 뺄 수 없습니다': 'Can\'t remove the only place',
   // 하단 탭바·하단 시트·경로 최적화
   '주요 메뉴': 'Main menu',
-  '마이': 'My',
   '정보창 크기 바꾸기': 'Resize panel',
   '경로 최적화': 'Optimize route',
   '이미 최적 순서입니다': 'Already in the optimal order',

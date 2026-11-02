@@ -592,7 +592,7 @@ export default function App() {
             ['community', t('커뮤니티'), TabIcons.community],
             // '찜'의 영어는 버튼용 'Save'라서 탭 이름은 따로
             ['bookmarks', lang === 'en' ? 'Saved' : '찜', TabIcons.bookmarks],
-            ['mypage', t('마이'), TabIcons.mypage],
+            ['mypage', t('마이페이지'), TabIcons.mypage],
           ] as const
         ).map(([key, label, icon]) => (
           <button

@@ -19,7 +19,7 @@ import { serverEnabled } from '../services/supabase'
 export type MyPageSelection = { tripId: string; dayNumber: number | null; bookmark?: boolean } | null
 
 type Props = {
-  /** all = 내 여행 + 찜한 여행, bookmarks = 찜한 여행만 (휴대폰 하단 탭바의 [찜]) */
+  /** all = 내 여행 + 내가 올린 글 (마이페이지), bookmarks = 찜한 여행만 (하단 탭바의 [찜]) */
   section?: 'all' | 'bookmarks'
   trips: SavedTrip[]
   /** 로그인한 사람 — 저장한 여행·찜·올린 글은 로그인한 사람 것만 보임 */
@@ -396,84 +396,86 @@ export default function MyPage({
         </div>
       )}
 
-      {/* 커뮤니티에서 즐겨찾기한 다른 사람의 여행이 모일 자리 (커뮤니티 기능을 붙이면 채움) */}
-      <div className="wizard mypage">
-        <div className="schedule-head">
-          <h2 className="wizard-title">{t('찜한 여행')}</h2>
-        </div>
-        {bookmarks === null ? (
-          <p className="hint">{t('로그인하면 커뮤니티에서 찜한 여행을 여기서 볼 수 있습니다.')}</p>
-        ) : bookmarks.length === 0 ? (
-          <p className="hint">
-            {t('아직 찜한 여행이 없습니다. 커뮤니티에서 마음에 드는 여행의 🔖를 누르면 여기에 모입니다.')}{' '}
-            <button type="button" className="link-btn" onClick={onOpenCommunity}>
-              {t('커뮤니티 둘러보기')}
-            </button>
-          </p>
-        ) : (
-          <ul className="trip-list">
-            {bookmarks.map((b) => {
-              const c = findCountry(b.trip.countryCode)
-              return (
-                <li key={b.postId} className="trip-card">
-                  <div className="bookmark-author">
-                    <UserIcon icon={b.author.icon} />
-                    <span>{b.author.nickname}</span>
-                    <span className="hint">· {t('찜한 날 {date}', { date: formatDate(b.savedAt) })}</span>
-                  </div>
-                  <button
-                    type="button"
-                    className="trip-card-main as-link"
-                    onClick={() => onSelect({ tripId: b.postId, dayNumber: null, bookmark: true })}
-                  >
-                    <div className="trip-card-title">
-                      {c?.flag} {tripTitle(b.trip)}
+      {/* 커뮤니티에서 찜한 다른 사람의 여행 — 하단 탭 [찜]에서만 (마이페이지에는 없음) */}
+      {section === 'bookmarks' && (
+        <div className="wizard mypage">
+          <div className="schedule-head">
+            <h2 className="wizard-title">{t('찜한 여행')}</h2>
+          </div>
+          {bookmarks === null ? (
+            <p className="hint">{t('로그인하면 커뮤니티에서 찜한 여행을 여기서 볼 수 있습니다.')}</p>
+          ) : bookmarks.length === 0 ? (
+            <p className="hint">
+              {t('아직 찜한 여행이 없습니다. 커뮤니티에서 마음에 드는 여행의 🔖를 누르면 여기에 모입니다.')}{' '}
+              <button type="button" className="link-btn" onClick={onOpenCommunity}>
+                {t('커뮤니티 둘러보기')}
+              </button>
+            </p>
+          ) : (
+            <ul className="trip-list">
+              {bookmarks.map((b) => {
+                const c = findCountry(b.trip.countryCode)
+                return (
+                  <li key={b.postId} className="trip-card">
+                    <div className="bookmark-author">
+                      <UserIcon icon={b.author.icon} />
+                      <span>{b.author.nickname}</span>
+                      <span className="hint">· {t('찜한 날 {date}', { date: formatDate(b.savedAt) })}</span>
                     </div>
-                    <div className="hint">
-                      {c?.name ?? b.trip.countryCode} · {t('{n}일 일정', { n: b.trip.days.length })}
-                    </div>
-                  </button>
-                  <ul className="trip-days">
-                    {b.trip.days.map((d) => (
-                      <li key={d.dayNumber}>
-                        <button
-                          type="button"
-                          className="as-link"
-                          onClick={() => onSelect({ tripId: b.postId, dayNumber: d.dayNumber, bookmark: true })}
-                        >
-                          <DaySummary day={d} />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="trip-card-actions">
                     <button
                       type="button"
-                      className="btn small"
+                      className="trip-card-main as-link"
                       onClick={() => onSelect({ tripId: b.postId, dayNumber: null, bookmark: true })}
                     >
-                      {t('일정 보기')}
+                      <div className="trip-card-title">
+                        {c?.flag} {tripTitle(b.trip)}
+                      </div>
+                      <div className="hint">
+                        {c?.name ?? b.trip.countryCode} · {t('{n}일 일정', { n: b.trip.days.length })}
+                      </div>
                     </button>
-                    <button type="button" className="btn small" onClick={() => setSharing(b.trip)}>
-                      📤 {t('공유')}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn small danger"
-                      onClick={async () => {
-                        if (await askConfirm(t('"{name}"을(를) 찜한 여행에서 뺄까요?', { name: tripTitle(b.trip) }), t('찜 해제')))
-                          onRemoveBookmark(b.postId)
-                      }}
-                    >
-                      {t('찜 해제')}
-                    </button>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </div>
+                    <ul className="trip-days">
+                      {b.trip.days.map((d) => (
+                        <li key={d.dayNumber}>
+                          <button
+                            type="button"
+                            className="as-link"
+                            onClick={() => onSelect({ tripId: b.postId, dayNumber: d.dayNumber, bookmark: true })}
+                          >
+                            <DaySummary day={d} />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="trip-card-actions">
+                      <button
+                        type="button"
+                        className="btn small"
+                        onClick={() => onSelect({ tripId: b.postId, dayNumber: null, bookmark: true })}
+                      >
+                        {t('일정 보기')}
+                      </button>
+                      <button type="button" className="btn small" onClick={() => setSharing(b.trip)}>
+                        📤 {t('공유')}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn small danger"
+                        onClick={async () => {
+                          if (await askConfirm(t('"{name}"을(를) 찜한 여행에서 뺄까요?', { name: tripTitle(b.trip) }), t('찜 해제')))
+                            onRemoveBookmark(b.postId)
+                        }}
+                      >
+                        {t('찜 해제')}
+                      </button>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* 내가 커뮤니티에 올린 글 — 커뮤니티 화면과 같은 게시글 모습 그대로 */}
       {section === 'all' && myPosts.posts.length > 0 && (
