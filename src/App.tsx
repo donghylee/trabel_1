@@ -449,7 +449,7 @@ export default function App() {
           <MyPage
             section={view === 'bookmarks' ? 'bookmarks' : 'all'}
             trips={trips}
-            loggedIn={!!user}
+            user={user}
             onLogin={() => setView('login')}
             bookmarks={user ? bookmarks.bookmarks : null}
             onRemoveBookmark={bookmarks.remove}

@@ -11,16 +11,26 @@ type NewPost = Omit<FeedPost, 'id' | 'postedAt' | 'author' | 'likeCount' | 'comm
  * 커뮤니티에 사람들이 올린 글 (예시 게시물은 빼고).
  * 서버가 있으면 모두의 글을 받아 오고, 없으면 이 브라우저에서 올린 글만.
  * publish·remove는 실패하면 안내 문구를 돌려줌 (성공이면 null).
+ * mine이면 로그인한 사람이 올린 글만 (마이페이지).
  */
-export function usePosts(user: SessionUser | null) {
-  const [posts, setPosts] = useState<FeedPost[]>(() => (serverEnabled ? [] : loadPosts()))
+export function usePosts(user: SessionUser | null, mine = false) {
+  const authorId = mine ? (user?.id ?? null) : undefined
+  const [posts, setPosts] = useState<FeedPost[]>(() =>
+    serverEnabled ? [] : loadPosts().filter((p) => authorId === undefined || p.author.id === authorId),
+  )
   const [loading, setLoading] = useState(serverEnabled)
   const [loadFailed, setLoadFailed] = useState(false)
 
   useEffect(() => {
     if (!serverEnabled) return
     let cancelled = false
-    fetchServerPosts().then((list) => {
+    // 내 글만 보는데 로그인하지 않았으면 받아 올 것이 없음
+    if (authorId === null) {
+      setPosts([])
+      setLoading(false)
+      return
+    }
+    fetchServerPosts(authorId).then((list) => {
       if (cancelled) return
       setPosts(list ?? [])
       setLoadFailed(list === null)
@@ -29,7 +39,7 @@ export function usePosts(user: SessionUser | null) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [authorId])
 
   async function publish(input: NewPost): Promise<FeedPost | null> {
     if (!user) return null
@@ -62,7 +72,8 @@ export function usePosts(user: SessionUser | null) {
 
   async function remove(postId: string): Promise<boolean> {
     const next = posts.filter((p) => p.id !== postId)
-    const ok = serverEnabled ? await deleteServerPost(postId) : savePosts(next)
+    // 로컬에서는 내 글만 들고 있을 수 있으니 저장할 때는 전체 목록에서 뺌
+    const ok = serverEnabled ? await deleteServerPost(postId) : savePosts(loadPosts().filter((p) => p.id !== postId))
     if (!ok) return false
     // 글에 붙였던 사진도 저장소에서 지움
     const removed = posts.find((p) => p.id === postId)

@@ -20,6 +20,7 @@ type FeedRow = {
   /** 2026-11 추가 (supabase/migrations/003_post_cover.sql) — 그 전 DB에는 없음 */
   cover?: string | null
   like_count: number
+  comment_count: number
   created_at: string
 }
 
@@ -33,19 +34,17 @@ const toPost = (r: FeedRow): FeedPost => ({
   cover: r.cover ?? undefined,
   // 서버 수에는 내 좋아요도 들어 있음 — 화면(PostCard)에서 내 것을 빼고 다시 더함
   likeCount: r.like_count,
+  commentCount: r.comment_count,
   // 댓글은 글마다 따로 받아 옴 (lib/reactions)
   comments: [],
   postedAt: r.created_at,
 })
 
-/** 최근 글 (새 글이 앞). 실패하면 null */
-export async function fetchServerPosts(): Promise<FeedPost[] | null> {
+/** 최근 글 (새 글이 앞). authorId를 주면 그 사람 글 전부. 실패하면 null */
+export async function fetchServerPosts(authorId?: string): Promise<FeedPost[] | null> {
   if (!supabase) return null
-  const { data, error } = await supabase
-    .from('post_feed')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(FEED_LIMIT)
+  const query = supabase.from('post_feed').select('*').order('created_at', { ascending: false })
+  const { data, error } = await (authorId ? query.eq('author_id', authorId) : query.limit(FEED_LIMIT))
   return error || !data ? null : (data as FeedRow[]).map(toPost)
 }
 
