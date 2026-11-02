@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     // 휴대폰 홈 화면에 앱처럼 설치 (PWA). 아이콘은 pwa-assets.config.ts로 만든 public/ 파일
     VitePWA({
-      // 새로 배포하면 뒤에서 새 버전을 받아 두고, 다음에 앱을 열 때 적용 (쓰는 중에 화면이 갑자기 바뀌지 않게)
+      // 새로 배포하면 앱을 열 때 새 버전을 받아 바로 적용 (src/main.tsx의 registerSW)
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'favicon.png', 'apple-touch-icon-180x180.png'],
       manifest: {
