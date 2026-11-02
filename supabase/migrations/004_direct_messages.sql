@@ -180,26 +180,26 @@ $$;
 create or replace function public.dm_mark_read(conversation uuid)
 returns void
 language sql security definer set search_path = public
-as $
+as $$
   update public.dm_members set last_read_at = now()
   where conversation_id = conversation and user_id = auth.uid()
-$;
+$$;
 
 -- ── 대화 삭제 (나에게서만): 지금까지의 메시지를 숨김. 상대 쪽 대화는 그대로 ──
 create or replace function public.dm_hide(conversation uuid)
 returns void
 language sql security definer set search_path = public
-as $
+as $$
   update public.dm_members set hidden_before = now(), last_read_at = now()
   where conversation_id = conversation and user_id = auth.uid()
-$;
+$$;
 
 -- ── 내 메시지 지우기: "삭제된 메시지입니다"로 바꾸고, 지운 사진 경로를 돌려줌 (앱이 사진 파일도 지움) ──
 -- 실제 삭제 대신 수정이라 상대 화면에도 실시간으로 바로 반영됨
 create or replace function public.dm_delete_message(message uuid)
 returns text[]
 language plpgsql security definer set search_path = public
-as $
+as $$
 declare
   removed text[];
 begin
@@ -210,17 +210,17 @@ begin
   update public.dm_messages set deleted = true, body = '', photos = '{}', trip = null where id = message;
   return removed;
 end;
-$;
+$$;
 
 -- ── 이 기기 알림 구독 저장 (같은 기기에서 다른 계정으로 바꿔 로그인하면 새 계정으로 넘김) ──
 create or replace function public.dm_save_push(p_endpoint text, p_p256dh text, p_auth text)
 returns void
 language sql security definer set search_path = public
-as $
+as $$
   insert into public.push_subscriptions (endpoint, user_id, p256dh, auth)
   values (p_endpoint, auth.uid(), p_p256dh, p_auth)
   on conflict (endpoint) do update set user_id = auth.uid(), p256dh = excluded.p256dh, auth = excluded.auth
-$;
+$$;
 
 revoke all on function public.dm_open(uuid) from public, anon;
 revoke all on function public.dm_inbox() from public, anon;
