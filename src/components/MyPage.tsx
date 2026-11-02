@@ -29,6 +29,8 @@ type Props = {
   selection: MyPageSelection
   onSelect: (selection: MyPageSelection) => void
   onEditDay: (trip: SavedTrip, day: SavedDay) => void
+  /** 찜한 다른 사람 일정을 내 새 일정으로 가져와 고치기 (원본은 그대로) */
+  onCopyDay: (trip: SavedTrip, day: SavedDay) => void
   onAddDay: (trip: SavedTrip) => void
   onDeleteDay: (trip: SavedTrip, dayNumber: number) => void
   onDeleteTrip: (trip: SavedTrip) => void
@@ -65,13 +67,16 @@ function SavedDayView({
   trip,
   day,
   panelTop,
+  banner,
   onEdit,
   onDelete,
 }: {
   trip: SavedTrip
   day: SavedDay
   panelTop: ReactNode
-  /** 없으면 [수정하기]·[삭제] 버튼 없이 보기만 (찜한 다른 사람 일정) */
+  /** 제목 아래 안내 */
+  banner?: ReactNode
+  /** 없으면 버튼 없음 (찜한 일정은 [수정하기]만, [삭제]는 없음) */
   onEdit?: () => void
   onDelete?: () => void
 }) {
@@ -107,16 +112,20 @@ function SavedDayView({
       title={`${tripTitle(trip)} · ${t('{n}일차', { n: day.dayNumber })}`}
       dayColor={dayColor(day.dayNumber)}
       panelTop={panelTop}
+      banner={banner}
       actions={
-        onEdit &&
-        onDelete && (
+        (onEdit || onDelete) && (
           <>
-            <button type="button" className="btn small" onClick={onEdit}>
-              {t('수정하기')}
-            </button>
-            <button type="button" className="btn small danger" onClick={onDelete}>
-              {t('삭제')}
-            </button>
+            {onEdit && (
+              <button type="button" className="btn small" onClick={onEdit}>
+                {t('수정하기')}
+              </button>
+            )}
+            {onDelete && (
+              <button type="button" className="btn small danger" onClick={onDelete}>
+                {t('삭제')}
+              </button>
+            )}
           </>
         )
       }
@@ -135,6 +144,7 @@ export default function MyPage({
   selection,
   onSelect,
   onEditDay,
+  onCopyDay,
   onAddDay,
   onDeleteDay,
   onDeleteTrip,
@@ -275,7 +285,13 @@ export default function MyPage({
     return (
       <div className="mypage-detail">
         {day ? (
-          <SavedDayView trip={saved} day={day} panelTop={tripBar} />
+          <SavedDayView
+            trip={saved}
+            day={day}
+            panelTop={tripBar}
+            banner={<p className="notice">{t('숙소 정보가 있을 경우 확인 후 변경 및 추가 해주셔야 합니다.')}</p>}
+            onEdit={() => onCopyDay(saved, day)}
+          />
         ) : (
           <>
             {tripBar}

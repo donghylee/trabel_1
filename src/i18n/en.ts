@@ -13,7 +13,6 @@ export const en: Record<string, string> = {
   '계정 설정': 'Account settings',
   '로그아웃': 'Log out',
   '로그인': 'Log in',
-  '조건 수정': 'Edit conditions',
   '저장': 'Save',
   '로그인 후 사용 가능한 기능입니다.': 'Please log in to use this feature.',
   '로그인하기': 'Log in',
@@ -399,4 +398,5 @@ export const en: Record<string, string> = {
   '내 사진': 'My photo',
   '+ 사진 올리기': '+ Upload photo',
   '일정 이미지 미리보기': 'Plan image preview',
+  '숙소 정보가 있을 경우 확인 후 변경 및 추가 해주셔야 합니다.': 'If this plan has a hotel, please check it and change or add your own.',
 }

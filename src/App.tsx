@@ -242,6 +242,20 @@ export default function App() {
     setView('planner')
   }
 
+  /** 찜한 다른 사람의 하루 일정을 내 새 일정으로 가져와 결과 화면에서 고치기 — 저장하면 내 여행으로 (원본 글은 그대로) */
+  function copyDay(day: SavedDay) {
+    setInput(structuredClone(day.input))
+    setCustomOrder(day.customOrder)
+    setMealChoices(day.mealChoices)
+    setMealSlots(day.mealSlots ?? {})
+    setEditing(null)
+    setJustSaved(false)
+    // 나중에 [마이]를 누르면 찜 상세가 아니라 목록이 보이게
+    setMyPageSelection(null)
+    setPhase('result')
+    setView('planner')
+  }
+
   function newPlan() {
     setInput(initialInput)
     setCustomOrder(null)
@@ -443,6 +457,7 @@ export default function App() {
             selection={myPageSelection}
             onSelect={setMyPageSelection}
             onEditDay={editDay}
+            onCopyDay={(_, day) => copyDay(day)}
             onAddDay={(trip) => {
               const last = trip.days[trip.days.length - 1]
               startDay(trip, last ? last.input : { ...initialInput, countryCode: trip.countryCode })
@@ -479,7 +494,7 @@ export default function App() {
                       setPhase('input')
                     }}
                   >
-                    {t('조건 수정')}
+                    {t('수정하기')}
                   </button>
                   <button type="button" className="btn small primary" onClick={() => (user ? setSaveOpen(true) : setLoginNeeded(true))}>
                     💾 {t('저장')}
