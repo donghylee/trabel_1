@@ -424,10 +424,9 @@ export default function App() {
             onUserChange={setUser}
             onLogin={(u) => {
               setUser(u)
-              if (loginNeeded) {
-                setLoginNeeded(false)
-                setView('planner')
-              }
+              // 로그인하면 일정 만들기로 (저장하려다 로그인했으면 만들던 일정이 그대로 있음)
+              setLoginNeeded(false)
+              setView('planner')
             }}
           />
         </main>
