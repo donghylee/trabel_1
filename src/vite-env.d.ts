@@ -15,6 +15,8 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL?: string
   /** Supabase anon(공개) 키 — service_role 키는 넣으면 안 됨 */
   readonly VITE_SUPABASE_ANON_KEY?: string
+  /** 메시지 푸시 알림 공개 키 (VAPID) */
+  readonly VITE_VAPID_PUBLIC_KEY?: string
 }
 
 interface ImportMeta {

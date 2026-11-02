@@ -4,7 +4,7 @@
 //   (키를 이미지 안에 굽지 않기 위해 — docker/40-app-config.sh 참고)
 
 type RuntimeConfig = Partial<
-  Record<'GOOGLE_MAPS_API_KEY' | 'GOOGLE_MAP_ID' | 'TMAP_APP_KEY' | 'ODSAY_API_KEY' | 'SUPABASE_URL' | 'SUPABASE_ANON_KEY', string>
+  Record<'GOOGLE_MAPS_API_KEY' | 'GOOGLE_MAP_ID' | 'TMAP_APP_KEY' | 'ODSAY_API_KEY' | 'SUPABASE_URL' | 'SUPABASE_ANON_KEY' | 'VAPID_PUBLIC_KEY', string>
 >
 
 declare global {
@@ -27,4 +27,6 @@ export const config = {
   // 서버(Supabase) — 둘 다 있어야 로그인·저장·커뮤니티를 서버로 (없으면 지금처럼 이 브라우저에만)
   supabaseUrl: pick(runtime.SUPABASE_URL, import.meta.env.VITE_SUPABASE_URL),
   supabaseAnonKey: pick(runtime.SUPABASE_ANON_KEY, import.meta.env.VITE_SUPABASE_ANON_KEY),
+  // 메시지 푸시 알림의 공개 키 (Web Push VAPID). 비밀 키는 서버 함수(dm-push)에만 — docs/PUSH_SETUP.md
+  vapidPublicKey: pick(runtime.VAPID_PUBLIC_KEY, import.meta.env.VITE_VAPID_PUBLIC_KEY),
 }

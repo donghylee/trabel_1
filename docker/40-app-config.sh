@@ -13,6 +13,7 @@ TMAP_APP_KEY="${TMAP_APP_KEY:-${VITE_TMAP_APP_KEY:-}}"
 ODSAY_API_KEY="${ODSAY_API_KEY:-${VITE_ODSAY_API_KEY:-}}"
 SUPABASE_URL="${SUPABASE_URL:-${VITE_SUPABASE_URL:-}}"
 SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-${VITE_SUPABASE_ANON_KEY:-}}"
+VAPID_PUBLIC_KEY="${VAPID_PUBLIC_KEY:-${VITE_VAPID_PUBLIC_KEY:-}}"
 
 cat > /usr/share/nginx/html/config.js <<EOF
 window.__APP_CONFIG__ = {
@@ -21,12 +22,13 @@ window.__APP_CONFIG__ = {
   TMAP_APP_KEY: "$(esc "$TMAP_APP_KEY")",
   ODSAY_API_KEY: "$(esc "$ODSAY_API_KEY")",
   SUPABASE_URL: "$(esc "$SUPABASE_URL")",
-  SUPABASE_ANON_KEY: "$(esc "$SUPABASE_ANON_KEY")"
+  SUPABASE_ANON_KEY: "$(esc "$SUPABASE_ANON_KEY")",
+  VAPID_PUBLIC_KEY: "$(esc "$VAPID_PUBLIC_KEY")"
 }
 EOF
 
 # 어떤 키가 설정됐는지만 로그에 남김 (값은 출력하지 않음)
-for name in GOOGLE_MAPS_API_KEY TMAP_APP_KEY ODSAY_API_KEY SUPABASE_URL SUPABASE_ANON_KEY; do
+for name in GOOGLE_MAPS_API_KEY TMAP_APP_KEY ODSAY_API_KEY SUPABASE_URL SUPABASE_ANON_KEY VAPID_PUBLIC_KEY; do
   eval "value=\${$name}"
   if [ -n "$value" ]; then echo "config.js: $name 설정됨"; else echo "config.js: $name 없음"; fi
 done

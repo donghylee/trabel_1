@@ -213,3 +213,30 @@ export type FeedPost = {
 
 /** 찜한 게시물 — 원본이 지워져도 볼 수 있게 작성자·일정을 같이 둠 */
 export type Bookmark = { postId: string; author: FeedAuthor; trip: SavedTrip; savedAt: string }
+
+// 다이렉트 메시지 — 서버 테이블은 supabase/migrations/004_direct_messages.sql
+
+/** 메시지 상대·보낸 사람 (계정 ID가 꼭 있음) */
+export type DmUser = { id: string; nickname: string; icon: string }
+
+export type DmMessage = {
+  id: string
+  conversationId: string
+  senderId: string
+  body: string
+  /** 서버: 비공개 저장소 안 경로 (보여 줄 때 잠깐 쓰는 주소로 바꿈) · 브라우저 저장: data URL */
+  photos: string[]
+  /** 보낸 여행 일정 복사본 */
+  trip?: SavedTrip
+  /** 보낸 사람이 지운 메시지 */
+  deleted: boolean
+  createdAt: string
+}
+
+/** 메시지함 목록 한 줄 */
+export type DmThread = {
+  id: string
+  other: DmUser
+  last: { body: string; photoCount: number; hasTrip: boolean; deleted: boolean; senderId: string; at: string }
+  unread: number
+}

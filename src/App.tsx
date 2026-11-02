@@ -4,7 +4,8 @@ import AuthPage, { UserIcon } from './components/AuthPage'
 import CommunityPage from './components/CommunityPage'
 import ConfirmHost from './components/ConfirmDialog'
 import InstallButton from './components/InstallButton'
-import MyPage, { type MyPageSelection } from './components/MyPage'
+import MessagesPage from './components/MessagesPage'
+import MyPage, { SharedTripDetail, type MyPageSelection } from './components/MyPage'
 import SaveDialog from './components/SaveDialog'
 import ScheduleView from './components/ScheduleView'
 import { TabIcons } from './components/TabIcons'
@@ -13,18 +14,22 @@ import Wizard from './components/Wizard'
 import { findCountry, placesOf, tripTitle } from './data/catalog'
 import { useFetchRealLegs, useRealLegStore } from './hooks/useRealLegs'
 import { useBookmarks } from './hooks/useBookmarks'
+import { useInbox } from './hooks/useInbox'
 import { useTrips } from './hooks/useTrips'
 import { dayColor } from './lib/dayColors'
 import { t, useI18n } from './i18n'
 import { toPlace } from './lib/recommend'
 import { applyAdjustment, buildSchedule, suggestAdjustments } from './lib/schedule'
 import { loadSession, logOut, watchSession, type SessionUser } from './lib/auth'
+import { openConversation } from './lib/messages'
+import { disablePush, syncPush } from './lib/push'
 import { deleteDay, deleteTrip, nextDayNumber, renameTrip, upsertDay, type SaveTarget } from './lib/storage'
 import { toHHMM } from './lib/time'
 import { routeNote } from './services/routes'
 import { serverEnabled } from './services/supabase'
 import type {
   Adjustment,
+  DmUser,
   MealChoices,
   MealKind,
   MealSlots,
@@ -49,13 +54,16 @@ const initialInput: TripInput = {
 /** 지금 만들고 있는 일정이 어느 여행의 몇 일차인지 (저장 대화상자 기본값) */
 type Editing = { tripId: string; dayNumber: number }
 
-type View = 'planner' | 'mypage' | 'bookmarks' | 'community' | 'login'
+type View = 'planner' | 'mypage' | 'bookmarks' | 'community' | 'messages' | 'login'
 
 // 보고 있던 화면 — 새 버전을 받아 앱이 저절로 새로고침돼도 같은 화면으로 돌아오게 (이 탭에서만 기억)
 const SCREEN_KEY = 'trip-route-planner:screen'
-type Screen = { view: View; selection: MyPageSelection }
+type Screen = { view: View; selection: MyPageSelection; /** 열어 둔 메시지 대화 */ dm?: string | null }
 
 function loadScreen(): Screen {
+  // 메시지 푸시 알림을 눌러 열었으면 그 대화로 (/?dm=대화 id — public/push-sw.js)
+  const dm = new URLSearchParams(window.location.search).get('dm')
+  if (dm) return { view: 'messages', selection: null, dm }
   try {
     const saved = JSON.parse(sessionStorage.getItem(SCREEN_KEY) ?? 'null') as Screen | null
     if (saved?.view) return saved
@@ -97,14 +105,45 @@ export default function App() {
   // 로그인하지 않고 저장을 누르면 안내 (로그인하면 만들던 일정으로 돌아옴)
   const [loginNeeded, setLoginNeeded] = useState(false)
   const [myPageSelection, setMyPageSelection] = useState<MyPageSelection>(() => loadScreen().selection)
+  // 메시지: 열어 둔 대화, 메시지로 받은 일정을 지도로 보는 중이면 그 일정
+  const [dmOpen, setDmOpen] = useState<string | null>(() => loadScreen().dm ?? null)
+  const [dmTrip, setDmTrip] = useState<{ trip: SavedTrip; from: DmUser; dayNumber: number | null } | null>(null)
+  const inbox = useInbox(user)
 
   useEffect(() => {
     try {
-      sessionStorage.setItem(SCREEN_KEY, JSON.stringify({ view, selection: myPageSelection } satisfies Screen))
+      sessionStorage.setItem(SCREEN_KEY, JSON.stringify({ view, selection: myPageSelection, dm: dmOpen } satisfies Screen))
     } catch {
       // 저장하지 못해도 앱은 그대로
     }
-  }, [view, myPageSelection])
+  }, [view, myPageSelection, dmOpen])
+
+  // 알림으로 연 주소(?dm=)는 화면에 반영했으니 주소창에서 지움
+  useEffect(() => {
+    if (window.location.search.includes('dm=')) window.history.replaceState(null, '', window.location.pathname)
+  }, [])
+
+  // 앱이 열려 있을 때 알림을 누르면 서비스 워커가 알려 줌 → 그 대화로
+  useEffect(() => {
+    const sw = navigator.serviceWorker
+    if (!sw) return
+    const onMessage = (e: MessageEvent<{ type?: string; url?: string }>) => {
+      if (e.data?.type !== 'open-url' || !e.data.url) return
+      const dm = new URL(e.data.url, window.location.origin).searchParams.get('dm')
+      if (!dm) return
+      setDmTrip(null)
+      setDmOpen(dm)
+      setView('messages')
+    }
+    sw.addEventListener('message', onMessage)
+    return () => sw.removeEventListener('message', onMessage)
+  }, [])
+
+  // 이 기기에서 알림을 켜 두었으면 로그인한 계정으로 연결
+  const userId = user?.id
+  useEffect(() => {
+    if (userId) void syncPush()
+  }, [userId])
 
   // 서버 로그인을 쓰면: 기억해 둔 로그인이 아직 유효한지 확인하고, 만료·다른 탭 로그아웃을 반영
   useEffect(() => watchSession(setUser), [])
@@ -121,7 +160,25 @@ export default function App() {
 
   function logout() {
     setUser(null)
-    void logOut()
+    setDmOpen(null)
+    setDmTrip(null)
+    // 이 기기로 오던 메시지 알림을 끊은 뒤 로그아웃 (로그인한 동안에만 서버에서 지울 수 있음)
+    void disablePush()
+      .catch(() => {})
+      .finally(() => logOut())
+  }
+
+  /** 글쓴이와의 대화 열기 (없으면 만듦) */
+  async function openDm(other: DmUser) {
+    if (!user) {
+      setView('login')
+      return
+    }
+    const id = await openConversation(user, other)
+    if (!id) return
+    setDmTrip(null)
+    setDmOpen(id)
+    setView('messages')
   }
 
   const country = findCountry(input.countryCode)
@@ -300,6 +357,8 @@ export default function App() {
   const wide =
     view === 'login' || view === 'community'
       ? false
+      : view === 'messages'
+        ? !!dmTrip
       : view === 'mypage'
         ? !!myPageSelection
         : view === 'bookmarks'
@@ -336,11 +395,23 @@ export default function App() {
             </button>
             <div
               ref={pagesMenuRef}
-              className={`tab-menu nav-page ${view === 'mypage' || view === 'bookmarks' || view === 'community' ? 'active' : ''}`}
+              className={`tab-menu nav-page ${view === 'mypage' || view === 'bookmarks' || view === 'community' || view === 'messages' ? 'active' : ''}`}
             >
               <button type="button" onClick={() => setView('community')}>
-                {view === 'mypage' ? t('마이페이지') : view === 'bookmarks' ? t('찜한 여행') : t('커뮤니티')}
+                {view === 'mypage'
+                  ? t('마이페이지')
+                  : view === 'bookmarks'
+                    ? t('찜한 여행')
+                    : view === 'messages'
+                      ? t('메시지')
+                      : t('커뮤니티')}
                 {view === 'mypage' && trips.length > 0 && <span className="count">{trips.length}</span>}
+                {/* 안 읽은 메시지 */}
+                {inbox.unread > 0 && (
+                  <span className="count unread" aria-label={t('안 읽은 메시지 {n}개', { n: inbox.unread })}>
+                    {inbox.unread > 99 ? '99+' : inbox.unread}
+                  </span>
+                )}
               </button>
               <button
                 type="button"
@@ -356,6 +427,7 @@ export default function App() {
                   {(
                     [
                       ['community', t('커뮤니티')],
+                      ['messages', t('메시지')],
                       ['bookmarks', t('찜한 여행')],
                       ['mypage', t('마이페이지')],
                     ] as const
@@ -453,7 +525,36 @@ export default function App() {
             onNewPlan={newPlan}
             isBookmarked={bookmarks.isBookmarked}
             onToggleBookmark={bookmarks.toggle}
+            onMessage={(author) => void openDm(author)}
           />
+        </main>
+      ) : view === 'messages' ? (
+        <main className={`app-main dm-main ${wide ? 'wide' : ''}`}>
+          {dmTrip ? (
+            <SharedTripDetail
+              trip={dmTrip.trip}
+              author={dmTrip.from}
+              dayNumber={dmTrip.dayNumber}
+              backLabel={t('대화')}
+              onBack={() => setDmTrip(null)}
+              onSelectDay={(dayNumber) => setDmTrip({ ...dmTrip, dayNumber })}
+              onCopyDay={(day) => {
+                setDmTrip(null)
+                copyDay(day)
+              }}
+            />
+          ) : (
+            <MessagesPage
+              user={user}
+              inbox={inbox}
+              trips={trips}
+              openId={dmOpen}
+              onOpen={setDmOpen}
+              onLogin={() => setView('login')}
+              onOpenCommunity={() => setView('community')}
+              onViewTrip={(trip, from) => setDmTrip({ trip, from, dayNumber: null })}
+            />
+          )}
         </main>
       ) : view === 'login' ? (
         <main className="app-main">
@@ -464,6 +565,9 @@ export default function App() {
               setUser(u)
               // 로그인하면 일정 만들기로 (저장하려다 로그인했으면 만들던 일정이 그대로 있음)
               setLoginNeeded(false)
+              // 다른 계정으로 로그인했으면 전에 열어 둔 대화는 닫음
+              setDmOpen(null)
+              setDmTrip(null)
               setView('planner')
             }}
           />
@@ -614,6 +718,7 @@ export default function App() {
           [
             ['planner', t('일정 만들기'), TabIcons.planner],
             ['community', t('커뮤니티'), TabIcons.community],
+            ['messages', t('메시지'), TabIcons.messages],
             // '찜'의 영어는 버튼용 'Save'라서 탭 이름은 따로
             ['bookmarks', lang === 'en' ? 'Saved' : '찜', TabIcons.bookmarks],
             ['mypage', t('마이페이지'), TabIcons.mypage],
@@ -625,11 +730,21 @@ export default function App() {
             className={view === key ? 'active' : ''}
             aria-current={view === key ? 'page' : undefined}
             onClick={() => {
+              // 메시지 탭을 다시 누르면 대화 목록으로
+              if (key === 'messages' && view === 'messages') setDmOpen(null)
+              setDmTrip(null)
               setView(key)
               setOpenMenu(null)
             }}
           >
-            {icon}
+            <span className="tab-icon">
+              {icon}
+              {key === 'messages' && inbox.unread > 0 && (
+                <span className="tab-badge" aria-label={t('안 읽은 메시지 {n}개', { n: inbox.unread })}>
+                  {inbox.unread > 99 ? '99+' : inbox.unread}
+                </span>
+              )}
+            </span>
             {label}
           </button>
         ))}

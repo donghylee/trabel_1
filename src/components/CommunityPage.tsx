@@ -8,7 +8,8 @@ import { usePosts } from '../hooks/usePosts'
 import { addComment as saveComment, deleteComment, isServerPost, loadReactions, setLiked as saveLiked } from '../lib/reactions'
 import { serverEnabled } from '../services/supabase'
 import { renderTripImage } from '../lib/shareImage'
-import type { Country, FeedComment, FeedPost, SavedTrip } from '../types'
+import { timeAgo } from '../lib/time'
+import type { Country, DmUser, FeedComment, FeedPost, SavedTrip } from '../types'
 import { UserIcon } from './AuthPage'
 import ShareDialog from './ShareDialog'
 import WriteDialog from './WriteDialog'
@@ -24,6 +25,8 @@ type Props = {
   onNewPlan: () => void
   isBookmarked: (postId: string) => boolean
   onToggleBookmark: (post: FeedPost) => void
+  /** 글쓴이에게 메시지 보내기 (다른 사람 글에만) */
+  onMessage: (author: DmUser) => void
 }
 
 /** 여행 일정을 공유하는 피드 — 사람들이 올린 글(서버, 없으면 이 브라우저). 올라온 글이 하나도 없을 때만 예시 게시물(getMockFeed) */
@@ -34,6 +37,7 @@ export default function CommunityPage({
   onNewPlan,
   isBookmarked,
   onToggleBookmark,
+  onMessage,
 }: Props) {
   const [filter, setFilter] = useState<string | null>(null)
   const [sharing, setSharing] = useState<SavedTrip | null>(null)
@@ -145,6 +149,11 @@ export default function CommunityPage({
           onToggleSave={() => onToggleBookmark(post)}
           onRequireLogin={onRequireLogin}
           onShare={setSharing}
+          onMessage={
+            post.author.id && post.author.id !== user?.id
+              ? () => onMessage({ id: post.author.id!, nickname: post.author.nickname, icon: post.author.icon })
+              : undefined
+          }
           onDelete={
             user && post.author.id === user.id
               ? async () => {
@@ -169,16 +178,6 @@ export default function CommunityPage({
       )}
     </div>
   )
-}
-
-function timeAgo(iso: string): string {
-  const minutes = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000))
-  if (minutes < 1) return t('방금')
-  if (minutes < 60) return t('{n}분 전', { n: minutes })
-  if (minutes < 60 * 24) return t('{n}시간 전', { n: Math.floor(minutes / 60) })
-  if (minutes < 60 * 24 * 7) return t('{n}일 전', { n: Math.floor(minutes / 60 / 24) })
-  const d = new Date(iso)
-  return t('{month}월 {day}일', { month: d.getMonth() + 1, day: d.getDate() })
 }
 
 /** 일정 요약 이미지 (공유 이미지와 같은 그림, cover가 있으면 사진 배경) */
@@ -371,6 +370,13 @@ const Icon = {
       />
     </svg>
   ),
+  // 편지봉투 — 글쓴이에게 메시지
+  message: (
+    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <path d="m3.6 6.6 8.4 6.4 8.4-6.4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
   bookmark: (filled: boolean) => (
     <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
       <path
@@ -392,6 +398,7 @@ export function PostCard({
   onToggleSave,
   onRequireLogin,
   onShare,
+  onMessage,
   onDelete,
 }: {
   post: FeedPost
@@ -401,6 +408,8 @@ export function PostCard({
   onToggleSave: () => void
   onRequireLogin: () => void
   onShare: (trip: SavedTrip) => void
+  /** 다른 사람 글일 때만 (예시 게시물은 계정이 없어서 없음) */
+  onMessage?: () => void
   /** 내가 쓴 글일 때만 */
   onDelete?: () => void
 }) {
@@ -526,6 +535,11 @@ export function PostCard({
         <button type="button" className="icon-btn" aria-label={t('공유')} onClick={() => onShare(post.trip)}>
           {Icon.share}
         </button>
+        {onMessage && (
+          <button type="button" className="icon-btn" aria-label={t('메시지 보내기')} onClick={() => requireLogin(onMessage)}>
+            {Icon.message}
+          </button>
+        )}
         <button
           type="button"
           className="icon-btn post-save"

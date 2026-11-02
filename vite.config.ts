@@ -38,6 +38,8 @@ export default defineConfig({
         // 앱 코드 파일이 2MB를 넘어도 미리 받기
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         cleanupOutdatedCaches: true,
+        // 메시지 푸시 알림을 받아 띄우는 코드 (public/push-sw.js)
+        importScripts: ['push-sw.js'],
         runtimeCaching: [
           { urlPattern: /^https?:\/\/[^/]+\/config\.js(\?.*)?$/, handler: 'NetworkOnly' },
           // Pretendard 글꼴 — 한 번 받으면 오프라인에서도 같은 글꼴

@@ -25,6 +25,13 @@ export const TabIcons = {
       <path d="M8 9.5h8M8 12.5h5" />
     </svg>
   ),
+  // 편지봉투 (메시지)
+  messages: (
+    <svg {...svgProps}>
+      <rect x="3.5" y="5.5" width="17" height="13" rx="2" />
+      <path d="m4 7 8 6 8-6" />
+    </svg>
+  ),
   // 하트
   bookmarks: (
     <svg {...svgProps}>

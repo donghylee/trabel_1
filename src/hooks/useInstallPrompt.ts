@@ -12,7 +12,7 @@ type InstallPromptEvent = Event & {
 }
 
 /** 지금 설치한 앱(홈 화면 아이콘)으로 열려 있는지 */
-function isStandalone(): boolean {
+export function isStandalone(): boolean {
   return (
     window.matchMedia('(display-mode: standalone)').matches ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true
@@ -20,7 +20,7 @@ function isStandalone(): boolean {
 }
 
 /** 아이폰·아이패드 (아이패드는 PC처럼 보이는 경우가 있어 터치로도 구분) */
-function isIos(): boolean {
+export function isIos(): boolean {
   const ua = navigator.userAgent
   return /iPhone|iPad|iPod/.test(ua) || (ua.includes('Macintosh') && navigator.maxTouchPoints > 1)
 }

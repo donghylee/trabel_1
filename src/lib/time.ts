@@ -24,3 +24,14 @@ export function formatDuration(minutes: number): string {
   if (m === 0) return t('{h}시간', { h })
   return t('{h}시간 {m}분', { h, m })
 }
+
+/** 몇 분 전·몇 시간 전 (일주일이 넘으면 날짜) */
+export function timeAgo(iso: string): string {
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000))
+  if (minutes < 1) return t('방금')
+  if (minutes < 60) return t('{n}분 전', { n: minutes })
+  if (minutes < 60 * 24) return t('{n}시간 전', { n: Math.floor(minutes / 60) })
+  if (minutes < 60 * 24 * 7) return t('{n}일 전', { n: Math.floor(minutes / 60 / 24) })
+  const d = new Date(iso)
+  return t('{month}월 {day}일', { month: d.getMonth() + 1, day: d.getDate() })
+}

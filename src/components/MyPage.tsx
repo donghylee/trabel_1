@@ -138,6 +138,85 @@ function SavedDayView({
   )
 }
 
+/**
+ * 다른 사람의 여행 일정 (찜한 여행·메시지로 받은 일정) — 내 여행 열기와 같은 지도 화면.
+ * 원본은 고치지 않고, [수정하기]를 누르면 내 새 일정으로 복사해서 고침
+ */
+export function SharedTripDetail({
+  trip,
+  author,
+  dayNumber,
+  onBack,
+  backLabel = t('목록'),
+  onSelectDay,
+  onCopyDay,
+}: {
+  trip: SavedTrip
+  author: { nickname: string; icon: string }
+  dayNumber: number | null
+  onBack: () => void
+  backLabel?: string
+  onSelectDay: (dayNumber: number) => void
+  onCopyDay: (day: SavedDay) => void
+}) {
+  const [sharing, setSharing] = useState(false)
+  const day = trip.days.find((d) => d.dayNumber === dayNumber) ?? trip.days[0]
+  const country = findCountry(trip.countryCode)
+  const tripBar = (
+    <div className="trip-bar">
+      <button type="button" className="btn small" onClick={onBack}>
+        ← {backLabel}
+      </button>
+      <h2 className="trip-name">
+        {country?.flag} {tripTitle(trip)}
+        <span className="bookmark-author">
+          <UserIcon icon={author.icon} />
+          {author.nickname}
+        </span>
+      </h2>
+      <button type="button" className="btn small" disabled={trip.days.length === 0} onClick={() => setSharing(true)}>
+        📤 {t('공유')}
+      </button>
+      <div className="day-tabs" role="tablist">
+        {trip.days.map((d) => (
+          <button
+            key={d.dayNumber}
+            type="button"
+            role="tab"
+            aria-selected={d.dayNumber === day?.dayNumber}
+            className={`tab ${d.dayNumber === day?.dayNumber ? 'active' : ''}`}
+            onClick={() => onSelectDay(d.dayNumber)}
+          >
+            <i className="day-dot" style={{ '--dot': dayColor(d.dayNumber) } as CSSProperties} />
+            {t('{n}일차', { n: d.dayNumber })}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+  return (
+    <div className="mypage-detail">
+      {day ? (
+        <SavedDayView
+          trip={trip}
+          day={day}
+          panelTop={tripBar}
+          banner={<p className="notice">{t('숙소 정보가 있을 경우 확인 후 변경 및 추가 해주셔야 합니다.')}</p>}
+          onEdit={() => onCopyDay(day)}
+        />
+      ) : (
+        <>
+          {tripBar}
+          <div className="app-main">
+            <p className="hint">{t('이 일정을 불러오지 못했습니다.')}</p>
+          </div>
+        </>
+      )}
+      {sharing && <ShareDialog trip={trip} country={country} onClose={() => setSharing(false)} />}
+    </div>
+  )
+}
+
 export default function MyPage({
   section = 'all',
   trips,
@@ -257,61 +336,15 @@ export default function MyPage({
 
   // 찜한 여행 상세 — 내 여행 열기와 같은 지도 화면, [수정하기]는 내 새 일정으로 복사
   if (bookmark) {
-    const saved = bookmark.trip
-    const day = saved.days.find((d) => d.dayNumber === selection?.dayNumber) ?? saved.days[0]
-    const country = findCountry(saved.countryCode)
-    const tripBar = (
-      <div className="trip-bar">
-        <button type="button" className="btn small" onClick={() => onSelect(null)}>
-          ← {t('목록')}
-        </button>
-        <h2 className="trip-name">
-          {country?.flag} {tripTitle(saved)}
-          <span className="bookmark-author">
-            <UserIcon icon={bookmark.author.icon} />
-            {bookmark.author.nickname}
-          </span>
-        </h2>
-        <button type="button" className="btn small" disabled={saved.days.length === 0} onClick={() => setSharing(saved)}>
-          📤 {t('공유')}
-        </button>
-        <div className="day-tabs" role="tablist">
-          {saved.days.map((d) => (
-            <button
-              key={d.dayNumber}
-              type="button"
-              role="tab"
-              aria-selected={d.dayNumber === day?.dayNumber}
-              className={`tab ${d.dayNumber === day?.dayNumber ? 'active' : ''}`}
-              onClick={() => onSelect({ tripId: bookmark.postId, dayNumber: d.dayNumber, bookmark: true })}
-            >
-              <i className="day-dot" style={{ '--dot': dayColor(d.dayNumber) } as CSSProperties} />
-              {t('{n}일차', { n: d.dayNumber })}
-            </button>
-          ))}
-        </div>
-      </div>
-    )
     return (
-      <div className="mypage-detail">
-        {day ? (
-          <SavedDayView
-            trip={saved}
-            day={day}
-            panelTop={tripBar}
-            banner={<p className="notice">{t('숙소 정보가 있을 경우 확인 후 변경 및 추가 해주셔야 합니다.')}</p>}
-            onEdit={() => onCopyDay(saved, day)}
-          />
-        ) : (
-          <>
-            {tripBar}
-            <div className="app-main">
-              <p className="hint">{t('이 일정을 불러오지 못했습니다.')}</p>
-            </div>
-          </>
-        )}
-        {shareDialog}
-      </div>
+      <SharedTripDetail
+        trip={bookmark.trip}
+        author={bookmark.author}
+        dayNumber={selection?.dayNumber ?? null}
+        onBack={() => onSelect(null)}
+        onSelectDay={(dayNumber) => onSelect({ tripId: bookmark.postId, dayNumber, bookmark: true })}
+        onCopyDay={(day) => onCopyDay(bookmark.trip, day)}
+      />
     )
   }
 
