@@ -307,21 +307,21 @@ language plpgsql security definer set search_path = public
 as $$
 declare
   me uuid := auth.uid();
-  found uuid;
+  conv uuid;
 begin
   if me is null then raise exception 'login required'; end if;
   if other = me then raise exception 'cannot message yourself'; end if;
   if not exists (select 1 from public.profiles where id = other) then raise exception 'no such user'; end if;
-  select a.conversation_id into found
+  select a.conversation_id into conv
     from public.dm_members a
     join public.dm_members b on b.conversation_id = a.conversation_id and b.user_id = other
     where a.user_id = me
     limit 1;
-  if found is null then
-    insert into public.dm_conversations default values returning id into found;
-    insert into public.dm_members (conversation_id, user_id) values (found, me), (found, other);
+  if conv is null then
+    insert into public.dm_conversations default values returning id into conv;
+    insert into public.dm_members (conversation_id, user_id) values (conv, me), (conv, other);
   end if;
-  return found;
+  return conv;
 end;
 $$;
 
@@ -436,7 +436,8 @@ grant execute on function public.dm_delete_message(uuid) to authenticated;
 do $$
 begin
   alter publication supabase_realtime add table public.dm_messages;
-exception when duplicate_object then null;
+-- 이미 들어 있거나(duplicate_object) 실시간 설정이 없는 프로젝트(undefined_object)면 건너뜀
+  exception when duplicate_object or undefined_object then null;
 end $$;
 
 -- ── 메시지 사진: 비공개 버킷, 대화하는 두 사람만 보고 올림. 경로 {대화 id}/{파일} ──
