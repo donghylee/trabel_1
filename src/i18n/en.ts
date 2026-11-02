@@ -213,11 +213,6 @@ export const en: Record<string, string> = {
   '일정 보기': 'View plan',
   '"{name}"을(를) 찜한 여행에서 뺄까요?': 'Remove "{name}" from your saved trips?',
   '찜 해제': 'Unsave',
-  '내가 올린 글': 'My posts',
-  '로그인하면 커뮤니티에 올린 글을 여기서 볼 수 있습니다.': 'Log in to see your community posts here.',
-  '아직 커뮤니티에 올린 글이 없습니다.': 'You have not posted to the community yet.',
-  '올린 날 {date}': 'posted {date}',
-  '글 삭제': 'Delete post',
   // 로그인·계정·안내
   '회원가입': 'Sign up',
   '중복 확인': 'Check',

@@ -20,7 +20,6 @@ type FeedRow = {
   /** 2026-11 추가 (supabase/migrations/003_post_cover.sql) — 그 전 DB에는 없음 */
   cover?: string | null
   like_count: number
-  comment_count: number
   created_at: string
 }
 
@@ -34,7 +33,6 @@ const toPost = (r: FeedRow): FeedPost => ({
   cover: r.cover ?? undefined,
   // 서버 수에는 내 좋아요도 들어 있음 — 화면(PostCard)에서 내 것을 빼고 다시 더함
   likeCount: r.like_count,
-  commentCount: r.comment_count,
   // 댓글은 글마다 따로 받아 옴 (lib/reactions)
   comments: [],
   postedAt: r.created_at,

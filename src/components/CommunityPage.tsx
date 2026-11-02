@@ -384,7 +384,8 @@ const Icon = {
   ),
 }
 
-function PostCard({
+/** 게시글 한 개 — 커뮤니티 피드와 마이페이지(내가 올린 글)에서 씀 */
+export function PostCard({
   post,
   user,
   saved,

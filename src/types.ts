@@ -206,8 +206,6 @@ export type FeedPost = {
   cover?: string
   /** 다른 사람들이 누른 좋아요 수 (내가 누른 것은 따로 기억해서 더함) */
   likeCount: number
-  /** 서버에 있는 댓글 수 (목록 요약용 — 댓글 내용은 따로 받아 옴) */
-  commentCount?: number
   /** 게시물에 처음부터 있던 댓글 (내가 단 댓글은 따로 기억해서 붙임) */
   comments: FeedComment[]
   postedAt: string

@@ -8,14 +8,15 @@ import { askConfirm } from '../lib/confirm'
 import type { SessionUser } from '../lib/auth'
 import { usePosts } from '../hooks/usePosts'
 import { routeNote } from '../services/routes'
-import type { Bookmark, SavedDay, SavedTrip } from '../types'
+import type { Bookmark, FeedPost, SavedDay, SavedTrip } from '../types'
 import { UserIcon } from './AuthPage'
+import { PostCard } from './CommunityPage'
 import ScheduleView from './ScheduleView'
 import ShareDialog from './ShareDialog'
 import { serverEnabled } from '../services/supabase'
 
-/** bookmark면 tripId 자리에 찜한 게시물 id, post면 내가 올린 게시물 id (게시물 일정은 읽기 전용) */
-export type MyPageSelection = { tripId: string; dayNumber: number | null; bookmark?: boolean; post?: boolean } | null
+/** bookmark면 tripId 자리에 찜한 게시물 id (다른 사람 일정이라 읽기 전용) */
+export type MyPageSelection = { tripId: string; dayNumber: number | null; bookmark?: boolean } | null
 
 type Props = {
   /** all = 내 여행 + 찜한 여행, bookmarks = 찜한 여행만 (휴대폰 하단 탭바의 [찜]) */
@@ -27,6 +28,8 @@ type Props = {
   /** 로그인하지 않았으면 null */
   bookmarks: Bookmark[] | null
   onRemoveBookmark: (postId: string) => void
+  isBookmarked: (postId: string) => boolean
+  onToggleBookmark: (post: FeedPost) => void
   onOpenCommunity: () => void
   selection: MyPageSelection
   onSelect: (selection: MyPageSelection) => void
@@ -142,6 +145,8 @@ export default function MyPage({
   onLogin,
   bookmarks,
   onRemoveBookmark,
+  isBookmarked,
+  onToggleBookmark,
   onOpenCommunity,
   selection,
   onSelect,
@@ -158,13 +163,8 @@ export default function MyPage({
   const loggedIn = !!user
   const myPosts = usePosts(user, true)
   const [postError, setPostError] = useState(false)
-  const trip =
-    section === 'all' && !selection?.bookmark && !selection?.post ? trips.find((x) => x.id === selection?.tripId) : undefined
-  const myPost = section === 'all' && selection?.post ? myPosts.posts.find((p) => p.id === selection.tripId) : undefined
-  // 찜한 글과 내가 올린 글은 같은 읽기 전용 화면 (내 글은 찜 모양으로 맞춰 씀)
-  const bookmark = selection?.bookmark
-    ? bookmarks?.find((b) => b.postId === selection.tripId)
-    : myPost && { postId: myPost.id, author: myPost.author, trip: myPost.trip, savedAt: myPost.postedAt }
+  const trip = section === 'all' && !selection?.bookmark ? trips.find((x) => x.id === selection?.tripId) : undefined
+  const bookmark = selection?.bookmark ? bookmarks?.find((b) => b.postId === selection.tripId) : undefined
   const shareDialog = sharing && (
     <ShareDialog
       trip={sharing}
@@ -255,9 +255,8 @@ export default function MyPage({
     )
   }
 
-  // 찜한 여행·내가 올린 글 상세 — 내 여행 열기와 같은 지도 화면, [수정하기]는 내 새 일정으로 복사
+  // 찜한 여행 상세 — 내 여행 열기와 같은 지도 화면, [수정하기]는 내 새 일정으로 복사
   if (bookmark) {
-    const isMine = !!selection?.post
     const saved = bookmark.trip
     const day = saved.days.find((d) => d.dayNumber === selection?.dayNumber) ?? saved.days[0]
     const country = findCountry(saved.countryCode)
@@ -284,9 +283,7 @@ export default function MyPage({
               role="tab"
               aria-selected={d.dayNumber === day?.dayNumber}
               className={`tab ${d.dayNumber === day?.dayNumber ? 'active' : ''}`}
-              onClick={() =>
-                onSelect({ tripId: bookmark.postId, dayNumber: d.dayNumber, ...(isMine ? { post: true } : { bookmark: true }) })
-              }
+              onClick={() => onSelect({ tripId: bookmark.postId, dayNumber: d.dayNumber, bookmark: true })}
             >
               <i className="day-dot" style={{ '--dot': dayColor(d.dayNumber) } as CSSProperties} />
               {t('{n}일차', { n: d.dayNumber })}
@@ -302,7 +299,7 @@ export default function MyPage({
             trip={saved}
             day={day}
             panelTop={tripBar}
-            banner={!isMine && <p className="notice">{t('숙소 정보가 있을 경우 확인 후 변경 및 추가 해주셔야 합니다.')}</p>}
+            banner={<p className="notice">{t('숙소 정보가 있을 경우 확인 후 변경 및 추가 해주셔야 합니다.')}</p>}
             onEdit={() => onCopyDay(saved, day)}
           />
         ) : (
@@ -478,74 +475,24 @@ export default function MyPage({
         )}
       </div>
 
-      {section === 'all' && (
-        <div className="wizard mypage">
-          <div className="schedule-head">
-            <h2 className="wizard-title">{t('내가 올린 글')}</h2>
-          </div>
+      {/* 내가 커뮤니티에 올린 글 — 커뮤니티 화면과 같은 게시글 모습 그대로 */}
+      {section === 'all' && myPosts.posts.length > 0 && (
+        <div className="feed mypage-posts">
           {postError && <p className="notice error-notice">{t('글을 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.')}</p>}
-          {!loggedIn ? (
-            <p className="hint">{t('로그인하면 커뮤니티에 올린 글을 여기서 볼 수 있습니다.')}</p>
-          ) : myPosts.loading ? (
-            <p className="hint">{t('글을 불러오는 중…')}</p>
-          ) : myPosts.loadFailed ? (
-            <p className="notice error-notice">{t('글을 불러오지 못했습니다. 새로고침해 주세요.')}</p>
-          ) : myPosts.posts.length === 0 ? (
-            <p className="hint">
-              {t('아직 커뮤니티에 올린 글이 없습니다.')}{' '}
-              <button type="button" className="link-btn" onClick={onOpenCommunity}>
-                {t('커뮤니티 둘러보기')}
-              </button>
-            </p>
-          ) : (
-            <ul className="trip-list">
-              {myPosts.posts.map((p) => {
-                const c = findCountry(p.trip.countryCode)
-                const open = (dayNumber: number | null) => onSelect({ tripId: p.id, dayNumber, post: true })
-                return (
-                  <li key={p.id} className="trip-card">
-                    <button type="button" className="trip-card-main as-link" onClick={() => open(null)}>
-                      <div className="trip-card-title">
-                        {c?.flag} {tripTitle(p.trip)}
-                      </div>
-                      {p.caption && <div className="post-caption-line">{p.caption}</div>}
-                      <div className="hint">
-                        {t('올린 날 {date}', { date: formatDate(p.postedAt) })} · ❤️ {p.likeCount} · 💬{' '}
-                        {p.commentCount ?? p.comments.length}
-                      </div>
-                    </button>
-                    <ul className="trip-days">
-                      {p.trip.days.map((d) => (
-                        <li key={d.dayNumber}>
-                          <button type="button" className="as-link" onClick={() => open(d.dayNumber)}>
-                            <DaySummary day={d} />
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="trip-card-actions">
-                      <button type="button" className="btn small" onClick={() => open(null)}>
-                        {t('일정 보기')}
-                      </button>
-                      <button type="button" className="btn small" onClick={() => setSharing(p.trip)}>
-                        📤 {t('공유')}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn small danger"
-                        onClick={async () => {
-                          if (!(await askConfirm(t('이 글을 삭제할까요?')))) return
-                          setPostError(!(await myPosts.remove(p.id)))
-                        }}
-                      >
-                        {t('글 삭제')}
-                      </button>
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
+          {myPosts.posts.map((post) => (
+            <PostCard
+              key={post.id}
+              post={post}
+              user={user}
+              saved={isBookmarked(post.id)}
+              onToggleSave={() => onToggleBookmark(post)}
+              onRequireLogin={onLogin}
+              onShare={setSharing}
+              onDelete={async () => {
+                if (await askConfirm(t('이 글을 삭제할까요?'))) setPostError(!(await myPosts.remove(post.id)))
+              }}
+            />
+          ))}
         </div>
       )}
       {shareDialog}

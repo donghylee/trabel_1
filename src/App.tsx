@@ -453,6 +453,8 @@ export default function App() {
             onLogin={() => setView('login')}
             bookmarks={user ? bookmarks.bookmarks : null}
             onRemoveBookmark={bookmarks.remove}
+            isBookmarked={bookmarks.isBookmarked}
+            onToggleBookmark={bookmarks.toggle}
             onOpenCommunity={() => setView('community')}
             selection={myPageSelection}
             onSelect={setMyPageSelection}
