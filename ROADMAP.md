@@ -51,8 +51,8 @@
   - [x] 9-1. Google Cloud 콘솔에서 키를 Vercel 도메인으로만 제한 — 배포 주소·localhost만 허용, 다른 사이트·주소 없는 요청 차단 확인 (Places·Routes)
   - [x] 9-2. Supabase Edge Functions로 중계 서버 만들어 키 숨기기 — route-proxy로 TMAP 중계, 배포 코드에서 TMAP 키 제거 확인
 - [ ] 10. PWA 적용 (마지막에 — 개발 중 캐시 혼란 방지)
-  - [ ] 10-1. 아이콘(192·512·maskable·apple-touch-icon), vite-plugin-pwa, manifest(PLAN:J, #F86A07, standalone)
-  - [ ] 10-2. autoUpdate로 push할 때마다 자동 업데이트, config.js는 캐시에서 빼기
+  - [x] 10-1. 아이콘(192·512·maskable·apple-touch-icon), vite-plugin-pwa, manifest(PLAN:J, #F86A07, standalone)
+  - [x] 10-2. autoUpdate로 push할 때마다 자동 업데이트(다음에 열 때 적용), config.js는 캐시에서 빼기, Pretendard 글꼴은 캐시
   - [ ] 10-3. Vercel 배포 후 폰에서 설치 확인 (Chrome 개발자도구 Application·Lighthouse)
 - [ ] 11. 지인 테스트: 링크 + 설치 방법 공유 (안드로이드 "앱 설치", iPhone Safari 공유 → 홈 화면에 추가) → 피드백 반영
   - 화면만 먼저 보여주고 싶으면 7 도중에 10만 먼저 해도 됨 (이때 9-1은 꼭 먼저, 로그인·커뮤니티는 "내 폰에만 저장"이라고 안내)
