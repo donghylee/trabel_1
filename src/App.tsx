@@ -49,11 +49,27 @@ const initialInput: TripInput = {
 /** 지금 만들고 있는 일정이 어느 여행의 몇 일차인지 (저장 대화상자 기본값) */
 type Editing = { tripId: string; dayNumber: number }
 
+type View = 'planner' | 'mypage' | 'bookmarks' | 'community' | 'login'
+
+// 보고 있던 화면 — 새 버전을 받아 앱이 저절로 새로고침돼도 같은 화면으로 돌아오게 (이 탭에서만 기억)
+const SCREEN_KEY = 'trip-route-planner:screen'
+type Screen = { view: View; selection: MyPageSelection }
+
+function loadScreen(): Screen {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(SCREEN_KEY) ?? 'null') as Screen | null
+    if (saved?.view) return saved
+  } catch {
+    // 읽지 못하면 처음 화면
+  }
+  return { view: 'planner', selection: null }
+}
+
 export default function App() {
   // 언어가 바뀌면 App부터 다시 그려 모든 글자가 바뀌게
   const { lang, setLang } = useI18n()
   // bookmarks = 휴대폰 하단 탭바의 [찜] (마이페이지의 찜한 여행만)
-  const [view, setView] = useState<'planner' | 'mypage' | 'bookmarks' | 'community' | 'login'>('planner')
+  const [view, setView] = useState<View>(() => loadScreen().view)
   // 마이페이지 탭 옆 ▾ 메뉴 (마이페이지 / 커뮤니티)
   // 헤더의 펼침 메뉴: 'pages' = 커뮤니티 ▾ (커뮤니티 / 마이페이지), 'account' = 닉네임 (계정 설정 / 로그아웃)
   const [openMenu, setOpenMenu] = useState<'pages' | 'account' | null>(null)
@@ -80,7 +96,15 @@ export default function App() {
   const [justSaved, setJustSaved] = useState(false)
   // 로그인하지 않고 저장을 누르면 안내 (로그인하면 만들던 일정으로 돌아옴)
   const [loginNeeded, setLoginNeeded] = useState(false)
-  const [myPageSelection, setMyPageSelection] = useState<MyPageSelection>(null)
+  const [myPageSelection, setMyPageSelection] = useState<MyPageSelection>(() => loadScreen().selection)
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(SCREEN_KEY, JSON.stringify({ view, selection: myPageSelection } satisfies Screen))
+    } catch {
+      // 저장하지 못해도 앱은 그대로
+    }
+  }, [view, myPageSelection])
 
   // 서버 로그인을 쓰면: 기억해 둔 로그인이 아직 유효한지 확인하고, 만료·다른 탭 로그아웃을 반영
   useEffect(() => watchSession(setUser), [])
