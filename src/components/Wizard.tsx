@@ -113,12 +113,15 @@ export default function Wizard({ input, startAt = 'country', onChange, onComplet
       </div>
 
       <div className="wizard-nav">
-        <button type="button" className="btn" disabled={step === 0} onClick={() => setStep(step - 1)}>
-          {t('이전')}
-        </button>
+        {/* 첫 단계(국가)에는 돌아갈 곳이 없으니 [이전]을 숨김 — [다음]은 오른쪽에 그대로 */}
+        {step > 0 && (
+          <button type="button" className="btn" onClick={() => setStep(step - 1)}>
+            {t('이전')}
+          </button>
+        )}
         <button
           type="button"
-          className="btn primary"
+          className="btn primary wizard-next"
           disabled={!canProceed}
           onClick={() => (isLast ? onComplete() : setStep(step + 1))}
         >

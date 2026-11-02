@@ -90,7 +90,18 @@ function wrap(ctx: CanvasRenderingContext2D, parts: string[], maxWidth: number):
 }
 
 export async function renderTripImage(trip: SavedTrip, country: Country | undefined): Promise<Blob> {
-  // 웹폰트를 쓰는 경우 글자 모양이 바뀌지 않게 먼저 준비
+  // Pretendard 웹폰트는 화면에 나온 글자 묶음만 받아 오므로, 이미지에 쓸 글자를 굵기별로 미리 받아 둠
+  const sample = [
+    tripTitle(trip),
+    country?.name ?? '',
+    ...trip.days.flatMap((day) => rowsOf(day, country).rows.map((row) => row.text)),
+    t('{n}일 일정', { n: trip.days.length }),
+    t('계획하는 순간, 여행이 시작된다'),
+    'PLAN:J 0123456789~·',
+  ].join(' ')
+  await Promise.all(
+    [400, 500, 600, 700, 800].map((weight) => document.fonts?.load(`${weight} 28px Pretendard`, sample).catch(() => [])),
+  )
   await document.fonts?.ready
 
   const canvas = document.createElement('canvas')

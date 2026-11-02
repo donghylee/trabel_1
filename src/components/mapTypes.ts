@@ -27,6 +27,8 @@ export type MapViewProps = {
   paths: MapPath[]
   /** 이 마커로 지도를 옮기고 말풍선을 연다. seq는 같은 마커를 다시 눌러도 동작하게 하는 값 */
   focus: { id: string; seq: number } | null
+  /** 목록에서 마우스를 올리거나 고른 장소 — 이 마커를 크게 강조 */
+  activeId?: string | null
   onMarkerClick: (id: string) => void
   /** 마커가 아닌 지도 바닥을 눌렀을 때 */
   onMapClick?: (point: LatLng) => void

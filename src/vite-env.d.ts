@@ -10,6 +10,10 @@ interface ImportMetaEnv {
   readonly VITE_ODSAY_API_KEY?: string
   /** TMAP 앱 키 (한국 도보 길찾기) */
   readonly VITE_TMAP_APP_KEY?: string
+  /** Supabase 프로젝트 주소 (https://xxxx.supabase.co) — 없으면 이 브라우저에만 저장 */
+  readonly VITE_SUPABASE_URL?: string
+  /** Supabase anon(공개) 키 — service_role 키는 넣으면 안 됨 */
+  readonly VITE_SUPABASE_ANON_KEY?: string
 }
 
 interface ImportMeta {

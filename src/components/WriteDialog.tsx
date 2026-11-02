@@ -9,7 +9,8 @@ type Props = {
   trips: SavedTrip[]
   onCancel: () => void
   /** 올리지 못했으면 이유를 돌려줌 */
-  onSubmit: (post: { trip: SavedTrip; caption: string; tags: string[]; photos: string[] }) => string | null
+  /** 실패하면 안내 문구, 성공하면 null */
+  onSubmit: (post: { trip: SavedTrip; caption: string; tags: string[]; photos: string[] }) => Promise<string | null>
   onNewPlan: () => void
 }
 
@@ -24,6 +25,7 @@ export default function WriteDialog({ trips, onCancel, onSubmit, onNewPlan }: Pr
   const [photos, setPhotos] = useState<string[]>([])
   const [loadingPhotos, setLoadingPhotos] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   async function addPhotos(files: FileList | null) {
     if (!files?.length) return
@@ -45,7 +47,7 @@ export default function WriteDialog({ trips, onCancel, onSubmit, onNewPlan }: Pr
     setLoadingPhotos(false)
   }
 
-  function submit() {
+  async function submit() {
     const trip = shareable.find((item) => item.id === tripId)
     if (!trip) {
       setError(t('올릴 여행을 골라 주세요.'))
@@ -55,7 +57,9 @@ export default function WriteDialog({ trips, onCancel, onSubmit, onNewPlan }: Pr
       setError(t('소개글을 입력해 주세요.'))
       return
     }
-    const failure = onSubmit({ trip, caption: caption.trim(), tags: parseTags(tags), photos })
+    setSubmitting(true)
+    const failure = await onSubmit({ trip, caption: caption.trim(), tags: parseTags(tags), photos })
+    setSubmitting(false)
     if (failure) setError(failure)
   }
 
@@ -186,7 +190,7 @@ export default function WriteDialog({ trips, onCancel, onSubmit, onNewPlan }: Pr
               <button type="button" className="btn" onClick={onCancel}>
                 {t('취소')}
               </button>
-              <button type="button" className="btn primary" disabled={loadingPhotos} onClick={submit}>
+              <button type="button" className="btn primary" disabled={loadingPhotos || submitting} onClick={submit}>
                 {t('올리기')}
               </button>
             </div>

@@ -11,6 +11,7 @@ export default function LeafletMapView({
   markers,
   paths,
   focus,
+  activeId,
   onMarkerClick,
   onMapClick,
   initialZoom = 13,
@@ -18,7 +19,7 @@ export default function LeafletMapView({
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const layerRef = useRef<L.LayerGroup | null>(null)
-  const markerRefs = useRef(new Map<string, L.Marker>())
+  const markerRefs = useRef(new Map<string, { marker: L.Marker; zIndex: number }>())
   // 마커 클릭 핸들러가 바뀌어도 지도를 다시 그리지 않도록 ref로 보관
   const onMarkerClickRef = useRef(onMarkerClick)
   onMarkerClickRef.current = onMarkerClick
@@ -67,6 +68,7 @@ export default function LeafletMapView({
       const variant = m.variant ?? 'stop'
       const isPoi = variant === 'poi'
       const size = isPoi ? 26 : variant === 'candidate' ? 36 : variant === 'meal' ? 20 : 32
+      const zIndex = isPoi ? 0 : variant === 'candidate' ? 2000 : 1000
       const marker = L.marker([m.position.lat, m.position.lng], {
         icon: L.divIcon({
           className: `map-pin ${variant}`,
@@ -74,12 +76,12 @@ export default function LeafletMapView({
           iconSize: [size, size],
           iconAnchor: [size / 2, size / 2],
         }),
-        zIndexOffset: isPoi ? 0 : variant === 'candidate' ? 2000 : 1000,
+        zIndexOffset: zIndex,
       })
         .bindPopup(`<strong>${m.title}</strong><br>${m.subtitle}`)
         .on('click', () => onMarkerClickRef.current(m.id))
         .addTo(layer)
-      markerRefs.current.set(m.id, marker)
+      markerRefs.current.set(m.id, { marker, zIndex })
     }
   }, [markers, paths])
 
@@ -94,9 +96,18 @@ export default function LeafletMapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stopKey])
 
+  // 강조할 마커만 크게, 다른 마커 위로
+  useEffect(() => {
+    for (const [id, { marker, zIndex }] of markerRefs.current) {
+      const active = id === activeId
+      marker.getElement()?.classList.toggle('active', active)
+      marker.setZIndexOffset(active ? 3000 : zIndex)
+    }
+  }, [activeId, markers])
+
   useEffect(() => {
     if (!focus) return
-    const marker = markerRefs.current.get(focus.id)
+    const marker = markerRefs.current.get(focus.id)?.marker
     if (!marker || !mapRef.current) return
     mapRef.current.flyTo(marker.getLatLng(), Math.max(mapRef.current.getZoom(), 15), { duration: 0.6 })
     marker.openPopup()

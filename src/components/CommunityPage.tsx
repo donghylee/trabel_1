@@ -1,14 +1,20 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { findCountry, tripTitle } from '../data/catalog'
-import { getMockFeed, type FeedComment, type FeedPost } from '../data/mockFeed'
+import { getMockFeed } from '../data/mockFeed'
 import { t } from '../i18n'
 import type { SessionUser } from '../lib/auth'
-import { loadPosts, savePosts, type MyPost } from '../lib/posts'
+import { askConfirm } from '../lib/confirm'
+import { usePosts } from '../hooks/usePosts'
+import { addComment as saveComment, deleteComment, isServerPost, loadReactions, setLiked as saveLiked } from '../lib/reactions'
+import { serverEnabled } from '../services/supabase'
 import { renderTripImage } from '../lib/shareImage'
-import type { Country, SavedTrip } from '../types'
+import type { Country, FeedComment, FeedPost, SavedTrip } from '../types'
 import { UserIcon } from './AuthPage'
 import ShareDialog from './ShareDialog'
 import WriteDialog from './WriteDialog'
+
+/** 완료 안내가 떠 있는 시간 */
+const NOTICE_MS = 2000
 
 type Props = {
   user: SessionUser | null
@@ -20,7 +26,7 @@ type Props = {
   onToggleBookmark: (post: FeedPost) => void
 }
 
-/** 여행 일정을 공유하는 피드 — 직접 올린 글(이 브라우저에 저장) + 예시 게시물(getMockFeed) */
+/** 여행 일정을 공유하는 피드 — 사람들이 올린 글(서버, 없으면 이 브라우저) + 예시 게시물(getMockFeed) */
 export default function CommunityPage({
   user,
   trips,
@@ -31,21 +37,23 @@ export default function CommunityPage({
 }: Props) {
   const [filter, setFilter] = useState<string | null>(null)
   const [sharing, setSharing] = useState<SavedTrip | null>(null)
-  const [myPosts, setMyPosts] = useState<MyPost[]>(loadPosts)
+  const feed = usePosts(user)
   const [writing, setWriting] = useState(false)
   const [loginNeeded, setLoginNeeded] = useState(false)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
 
-  const allPosts: FeedPost[] = [...myPosts, ...getMockFeed()]
+  // 완료 안내(글 올림·삭제)는 2초 뒤 저절로 사라짐 — 실패 안내는 읽을 수 있게 그대로 둠
+  useEffect(() => {
+    if (!notice?.ok) return
+    const timer = setTimeout(() => setNotice(null), NOTICE_MS)
+    return () => clearTimeout(timer)
+  }, [notice])
+
+  const allPosts: FeedPost[] = [...feed.posts, ...getMockFeed()]
   const countries = [...new Set(allPosts.map((p) => p.trip.countryCode))]
   const posts = filter ? allPosts.filter((p) => p.trip.countryCode === filter) : allPosts
 
-  function changePosts(next: MyPost[]) {
-    setMyPosts(next)
-    if (!savePosts(next)) setNotice({ ok: false, text: t('이 브라우저에 저장하지 못했습니다. 새로고침하면 사라질 수 있습니다.') })
-  }
-
-  function publish({
+  async function publish({
     trip,
     caption,
     tags,
@@ -55,26 +63,15 @@ export default function CommunityPage({
     caption: string
     tags: string[]
     photos: string[]
-  }): string | null {
+  }): Promise<string | null> {
     if (!user) return t('로그인 후 사용 가능한 기능입니다.')
-    const now = new Date().toISOString()
-    const post: MyPost = {
-      id: `my-${Date.now().toString(36)}`,
-      authorId: user.id,
-      author: { nickname: user.nickname, icon: user.icon ?? '' },
-      // 올린 뒤 내 여행을 고쳐도 게시물은 그대로 남게 복사본으로
-      trip: structuredClone(trip),
-      caption,
-      tags,
-      photos,
-      likeCount: 0,
-      comments: [],
-      postedAt: now,
-    }
-    const next = [post, ...myPosts]
-    // 사진이 커서 브라우저 저장 공간을 넘으면 올리지 않고 글쓰기 창에서 안내
-    if (!savePosts(next)) return t('저장 공간이 부족합니다. 사진 수를 줄이거나 예전 글을 지운 뒤 다시 올려 주세요.')
-    setMyPosts(next)
+    // 올린 뒤 내 여행을 고쳐도 게시물은 그대로 남게 복사본으로
+    const saved = await feed.publish({ trip: structuredClone(trip), caption, tags, photos })
+    // 실패하면 올리지 않고 글쓰기 창에서 안내
+    if (!saved)
+      return serverEnabled
+        ? t('글을 올리지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.')
+        : t('저장 공간이 부족합니다. 사진 수를 줄이거나 예전 글을 지운 뒤 다시 올려 주세요.')
     setWriting(false)
     setFilter(null)
     setNotice({ ok: true, text: t('커뮤니티에 글을 올렸습니다.') })
@@ -124,7 +121,13 @@ export default function CommunityPage({
         </p>
       )}
       {notice && <p className={`notice ${notice.ok ? 'success' : 'error-notice'}`}>{notice.text}</p>}
-      <p className="notice feed-notice">{t('지금은 예시 게시물과 이 브라우저에서 올린 글만 보입니다. 서버를 연결하면 다른 사람이 올린 여행도 나옵니다.')}</p>
+      <p className="notice feed-notice">
+        {serverEnabled
+          ? t('PLAN:J 사용자들이 올린 여행과 예시 게시물이 함께 보입니다.')
+          : t('지금은 예시 게시물과 이 브라우저에서 올린 글만 보입니다. 서버를 연결하면 다른 사람이 올린 여행도 나옵니다.')}
+      </p>
+      {feed.loading && <p className="hint">{t('글을 불러오는 중…')}</p>}
+      {feed.loadFailed && <p className="notice error-notice">{t('글을 불러오지 못했습니다. 새로고침해 주세요.')}</p>}
       {posts.map((post) => (
         <PostCard
           key={post.id}
@@ -135,12 +138,16 @@ export default function CommunityPage({
           onRequireLogin={onRequireLogin}
           onShare={setSharing}
           onDelete={
-            user && 'authorId' in post && post.authorId === user.id
-              ? () => {
-                  if (window.confirm(t('이 글을 삭제할까요?'))) {
-                    changePosts(myPosts.filter((p) => p.id !== post.id))
-                    setNotice({ ok: true, text: t('글을 삭제했습니다.') })
-                  }
+            user && post.author.id === user.id
+              ? async () => {
+                  if (!(await askConfirm(t('이 글을 삭제할까요?')))) return
+                  feed.remove(post.id).then((ok) =>
+                    setNotice(
+                      ok
+                        ? { ok: true, text: t('글을 삭제했습니다.') }
+                        : { ok: false, text: t('글을 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.') },
+                    ),
+                  )
                 }
               : undefined
           }
@@ -379,8 +386,28 @@ function PostCard({
   onDelete?: () => void
 }) {
   const country = findCountry(post.trip.countryCode)
-  const [liked, setLiked] = useState(false)
-  const [comments, setComments] = useState<FeedComment[]>(post.comments)
+  // 좋아요·사람들이 단 댓글 (서버 글이면 서버에서, 예시 게시물이면 이 브라우저에서 — lib/reactions)
+  const [liked, setLikedState] = useState(false)
+  const [likedAtLoad, setLikedAtLoad] = useState(false)
+  const [addedComments, setAddedComments] = useState<FeedComment[]>([])
+  const comments = [...post.comments, ...addedComments]
+  const userId = user?.id
+
+  useEffect(() => {
+    let cancelled = false
+    loadReactions(post.id, userId).then((r) => {
+      if (cancelled) return
+      setLikedState(r.liked)
+      setLikedAtLoad(r.liked)
+      setAddedComments(r.comments)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [post.id, userId])
+
+  // 서버 글의 좋아요 수에는 처음부터 내 좋아요가 들어 있으니 빼고, 지금 상태로 다시 더함
+  const othersLikes = post.likeCount - (isServerPost(post.id) && likedAtLoad ? 1 : 0)
   const [showAll, setShowAll] = useState(false)
   const [draft, setDraft] = useState('')
   const [loginNeeded, setLoginNeeded] = useState(false)
@@ -395,6 +422,20 @@ function PostCard({
     })
   }
 
+  function toggleLike() {
+    if (!user) return
+    const next = !liked
+    setLikedState(next)
+    // 저장에 실패하면 되돌림
+    saveLiked(user.id, post.id, next).then((ok) => !ok && setLikedState(!next))
+  }
+
+  function removeComment(commentId: string) {
+    deleteComment(post.id, commentId).then(
+      (ok) => ok && setAddedComments((prev) => prev.filter((c) => c.id !== commentId)),
+    )
+  }
+
   /** 로그인한 사람만 할 수 있는 동작 */
   function requireLogin(action: () => void) {
     if (!user) {
@@ -404,7 +445,7 @@ function PostCard({
     action()
   }
 
-  function addComment(e: FormEvent) {
+  async function addComment(e: FormEvent) {
     e.preventDefault()
     const text = draft.trim()
     if (!text) return
@@ -412,16 +453,13 @@ function PostCard({
       setLoginNeeded(true)
       return
     }
-    setComments([
-      ...comments,
-      {
-        id: `local-${Date.now()}`,
-        authorId: user.id,
-        author: { nickname: user.nickname, icon: user.icon ?? '' },
-        text,
-        postedAt: new Date().toISOString(),
-      },
-    ])
+    const saved = await saveComment(post.id, {
+      author: { id: user.id, nickname: user.nickname, icon: user.icon ?? '' },
+      text,
+      postedAt: new Date().toISOString(),
+    })
+    if (!saved) return
+    setAddedComments((prev) => [...prev, saved])
     setDraft('')
     setShowAll(true)
   }
@@ -459,7 +497,7 @@ function PostCard({
           className={`icon-btn ${liked ? 'liked' : ''}`}
           aria-label={liked ? t('좋아요 취소') : t('좋아요')}
           aria-pressed={liked}
-          onClick={() => requireLogin(() => setLiked(!liked))}
+          onClick={() => requireLogin(toggleLike)}
         >
           {Icon.heart(liked)}
         </button>
@@ -495,7 +533,7 @@ function PostCard({
       )}
 
       <div className="post-body">
-        <strong>{t('좋아요 {n}개', { n: (post.likeCount + (liked ? 1 : 0)).toLocaleString() })}</strong>
+        <strong>{t('좋아요 {n}개', { n: (othersLikes + (liked ? 1 : 0)).toLocaleString() })}</strong>
         <p className="post-caption">
           <strong>{post.author.nickname}</strong> <span className="post-trip-name">[{tripTitle(post.trip)}]</span> {post.caption}
         </p>
@@ -514,7 +552,7 @@ function PostCard({
                   <strong>{c.author.nickname}</strong> {c.text} <span className="hint">{timeAgo(c.postedAt)}</span>
                 </span>
                 {/* 내가 쓴 댓글에만 [⋯] → 삭제 */}
-                {user && c.authorId === user.id && (
+                {user && c.author.id === user.id && (
                   <MoreMenu
                     small
                     label={t('댓글 더보기')}
@@ -522,8 +560,8 @@ function PostCard({
                       {
                         label: t('삭제'),
                         danger: true,
-                        onSelect: () => {
-                          if (window.confirm(t('이 댓글을 삭제할까요?'))) setComments(comments.filter((x) => x.id !== c.id))
+                        onSelect: async () => {
+                          if (await askConfirm(t('이 댓글을 삭제할까요?'))) removeComment(c.id)
                         },
                       },
                     ]}

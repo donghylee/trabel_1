@@ -176,7 +176,11 @@ export default function PlaceStep({ country, customPlaces, selections, orderFixe
                   </button>
                 </>
               ) : (
-                t('끌어서 옮기거나 ▲▼로 순서를 바꿀 수 있습니다. 바꾸지 않으면 앱이 가장 효율적인 순서로 정합니다.')
+                <>
+                  {t('끌어서 옮기거나 ▲▼로 순서를 바꿀 수 있습니다.')}
+                  <br />
+                  {t('바꾸지 않으면 앱이 가장 효율적인 순서로 정합니다.')}
+                </>
               )}
             </p>
             <ul className="place-options">
@@ -211,8 +215,9 @@ export default function PlaceStep({ country, customPlaces, selections, orderFixe
                       ▼
                     </button>
                   </div>
-                  <span className={`order-badge ${orderFixed ? '' : 'auto'}`}>{orderFixed ? index + 1 : '·'}</span>
-                  <div className="place-option-main">
+                  {/* 순서를 직접 정했을 때만 번호 (앱이 정할 때는 표시 없음) */}
+                  {orderFixed && <span className="order-badge">{index + 1}</span>}
+                  <div className="place-option-main with-tag">
                     <span className="place-option-name">{place.name}</span>
                     <span className="tag">{categoryLabel(place.category)}</span>
                   </div>
@@ -239,7 +244,9 @@ export default function PlaceStep({ country, customPlaces, selections, orderFixe
             )}
           </>
         )}
-        {selections.length > 0 && <p className="hint">{t('머무를 시간 합계 {d}', { d: formatDuration(totalStay) })}</p>}
+        {selections.length > 0 && (
+          <p className="hint stay-total">{t('머무를 시간 합계 {d}', { d: formatDuration(totalStay) })}</p>
+        )}
       </div>
 
       {quickPickGroups.length > 0 && (

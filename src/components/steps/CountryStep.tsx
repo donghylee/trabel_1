@@ -6,7 +6,7 @@ type Props = {
   onChange: (code: string) => void
 }
 
-/** 나라별 대표 사진 (public/countries, 출처는 docs/PHOTO_CREDITS.md) — 모든 칸에 옅게, 고른 칸은 선명하게 */
+/** 나라별 대표 사진 (public/countries, 출처는 docs/PHOTO_CREDITS.md) — 사진은 선명하게, 글자는 사진 아래 흰 영역에 */
 const photoOf = (code: string) => `/countries/${code}.jpg`
 
 export default function CountryStep({ value, onChange }: Props) {
@@ -24,12 +24,18 @@ export default function CountryStep({ value, onChange }: Props) {
             key={country.code}
             type="button"
             className={`choice-card country-card ${selected ? 'selected' : ''}`}
+            aria-pressed={selected}
             style={{ '--photo': `url(${photoOf(country.code)})` } as CSSProperties}
             onClick={() => onChange(country.code)}
           >
-            <span className="choice-icon">{country.flag}</span>
-            <span className="choice-title">{country.name}</span>
-            <span className="choice-sub">{country.regions.map((r) => r.name).join(' · ')}</span>
+            <span className="country-photo">{selected && <span className="country-check">✓</span>}</span>
+            <span className="country-text">
+              <span className="country-name">
+                <span className="choice-title">{country.name}</span>
+                <span className="choice-icon">{country.flag}</span>
+              </span>
+              <span className="choice-sub">{country.regions.map((r) => r.name).join(' · ')}</span>
+            </span>
           </button>
         )
       })}

@@ -4,16 +4,21 @@ import { apiLanguage, t } from '../i18n'
 import { estimateLeg, modeLabels, recommend, taxiFare, transitFare } from '../lib/travel'
 import type { Country, LatLng, Leg, Place, TravelMode, TravelOption } from '../types'
 import { googleEnabled } from './google'
+import { serverEnabled, supabase } from './supabase'
 
 // 실제 길찾기 — 나라·이동수단마다 쓸 수 있는 API를 고르고, 없거나 실패하면 거리 추정값을 그대로 쓴다.
 //   한국  도보: TMAP / 대중교통: ODsay(요금 포함) → 없으면 Google / 택시: 추정 (Google은 한국 도보·자동차 길찾기 미제공)
 //   일본  도보: Google / 대중교통: 추정 (Google이 일본 대중교통 길찾기를 제공하지 않음) / 택시: Google 시간 + 요금 추정
 //   그 밖의 나라(베트남·대만·태국 등)  도보·대중교통·택시 모두 Google (요금은 받으면 실제, 못 받으면 추정)
 // 키가 브라우저에 보이므로 각 서비스 콘솔에서 사용처(localhost 등) 제한을 꼭 걸어야 한다.
+// TMAP은 사용처 제한이 없어서, 서버(Supabase)를 쓰면 키를 브라우저에 두지 않고 중계 함수(route-proxy)로 부른다.
+// (VITE_TMAP_APP_KEY가 있으면 개발용으로 바로 부름 — 배포 사이트에는 넣지 않음. docs/API_KEY_PROTECTION.md)
 
 const GOOGLE_KEY = config.googleMapsApiKey
 const ODSAY_KEY = config.odsayApiKey
 const TMAP_KEY = config.tmapAppKey
+/** 키가 브라우저에 없으면 서버 중계 함수로 TMAP을 부름 */
+const TMAP_VIA_SERVER = !TMAP_KEY && serverEnabled
 const TIMEOUT_MS = 12000
 
 type Provider = 'TMAP' | 'ODsay' | 'Google'
@@ -23,7 +28,7 @@ type RouteResult = Omit<TravelOption, 'mode'>
 export function routeProviders(country: Country): Record<TravelMode, Provider | null> {
   if (country.code === 'KR') {
     return {
-      walk: TMAP_KEY ? 'TMAP' : null,
+      walk: TMAP_KEY || TMAP_VIA_SERVER ? 'TMAP' : null,
       transit: ODSAY_KEY ? 'ODsay' : googleEnabled ? 'Google' : null,
       taxi: null,
     }
@@ -134,7 +139,19 @@ async function odsayTransit(from: LatLng, to: LatLng): Promise<RouteResult | nul
   }
 }
 
-async function tmapWalk(from: Place, to: Place): Promise<RouteResult | null> {
+/** TMAP 보행자 경로 원본 응답 — 키가 있으면 바로, 없으면 서버 중계 함수로 */
+async function tmapRequest(from: Place, to: Place): Promise<unknown> {
+  if (TMAP_VIA_SERVER && supabase) {
+    const { data, error } = await supabase.functions.invoke('route-proxy', {
+      body: {
+        provider: 'tmap-walk',
+        from: { ...from.location, name: from.name.slice(0, 100) },
+        to: { ...to.location, name: to.name.slice(0, 100) },
+      },
+    })
+    if (error) throw new Error(t('TMAP 오류 ({status})', { status: error.message }))
+    return data
+  }
   const res = await fetch('https://apis.openapi.sk.com/tmap/routes/pedestrian?version=1&format=json', {
     method: 'POST',
     signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -151,8 +168,14 @@ async function tmapWalk(from: Place, to: Place): Promise<RouteResult | null> {
     }),
   })
   if (!res.ok) throw new Error(t('TMAP 오류 ({status})', { status: res.status }))
-  const features: { geometry: { type: string; coordinates: number[][] }; properties: Record<string, number> }[] =
-    (await res.json()).features ?? []
+  return res.json()
+}
+
+async function tmapWalk(from: Place, to: Place): Promise<RouteResult | null> {
+  const json = (await tmapRequest(from, to)) as {
+    features?: { geometry: { type: string; coordinates: number[][] }; properties: Record<string, number> }[]
+  }
+  const features = json.features ?? []
   const summary = features[0]?.properties
   if (!summary?.totalTime) return null
   const path = features

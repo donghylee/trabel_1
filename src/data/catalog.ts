@@ -84,8 +84,8 @@ const baseCountries: Country[] = [
 const categoryLabels: Record<PlaceCategory, string> = {
   sight: '명소',
   museum: '박물관',
-  shopping: '쇼핑·거리',
-  nature: '자연·전망',
+  shopping: '쇼핑',
+  nature: '자연',
   food: '음식점',
   cafe: '카페',
   lodging: '숙소',

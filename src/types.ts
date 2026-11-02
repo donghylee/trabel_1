@@ -176,6 +176,8 @@ export type SavedDay = {
 /** 여러 날 일정을 묶은 여행 */
 export type SavedTrip = {
   id: string
+  /** 저장한 사람의 계정 ID. 예전에 저장한 여행에는 없음 (처음 고칠 때 로그인한 사람으로 채움) */
+  ownerId?: string
   name: string
   countryCode: string
   createdAt: string
@@ -183,3 +185,29 @@ export type SavedTrip = {
   /** dayNumber 오름차순 */
   days: SavedDay[]
 }
+
+// 커뮤니티 — 서버(DB) 테이블 설계는 docs/DATA_MODEL.md
+
+/** 게시물·댓글 작성자. id는 계정 ID (예시 게시물에는 없음) */
+export type FeedAuthor = { id?: string; nickname: string; icon: string }
+
+export type FeedComment = { id: string; author: FeedAuthor; text: string; postedAt: string }
+
+export type FeedPost = {
+  id: string
+  author: FeedAuthor
+  /** 올릴 때의 일정 복사본 — 올린 뒤 내 여행을 고쳐도 게시물은 그대로 */
+  trip: SavedTrip
+  caption: string
+  tags: string[]
+  /** 글쓴이가 함께 올린 사진 (data URL 또는 주소) */
+  photos?: string[]
+  /** 다른 사람들이 누른 좋아요 수 (내가 누른 것은 따로 기억해서 더함) */
+  likeCount: number
+  /** 게시물에 처음부터 있던 댓글 (내가 단 댓글은 따로 기억해서 붙임) */
+  comments: FeedComment[]
+  postedAt: string
+}
+
+/** 찜한 게시물 — 원본이 지워져도 볼 수 있게 작성자·일정을 같이 둠 */
+export type Bookmark = { postId: string; author: FeedAuthor; trip: SavedTrip; savedAt: string }

@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
 import { useDragReorder } from '../hooks/useDragReorder'
 import { useNearby } from '../hooks/useNearby'
 import { t } from '../i18n'
@@ -23,6 +23,7 @@ import type {
 } from '../types'
 import MapView, { type MapMarker, type MapPath } from './MapView'
 import NearbyPanel, { Stars, type KindFilter, type ScopeFilter } from './NearbyPanel'
+import PlaceThumb from './PlaceThumb'
 
 type Props = {
   country: Country
@@ -42,6 +43,8 @@ type Props = {
   /** 없으면 읽기 전용 (마이페이지에서 저장한 일정 볼 때) */
   editor?: ScheduleEditor
   routeStatus?: RouteStatus
+  /** 일차 색 (지도 번호 마커·시간표 번호). 없으면 시그니처 주황 */
+  dayColor?: string
 }
 
 export type ScheduleEditor = {
@@ -60,6 +63,14 @@ export type ScheduleEditor = {
 const RECOMMENDATION_COUNT = 6
 const MEAL_OPTION_COUNT = 3
 
+/** 휴대폰 하단 시트 높이 (결과 화면 높이에 대한 비율) — 지도 조금 / 반 / 거의 전체 */
+type SheetSize = 'peek' | 'half' | 'full'
+const SHEET_RATIO: Record<SheetSize, number> = { peek: 0.24, half: 0.52, full: 0.94 }
+const SHEET_MIN_RATIO = 0.12
+const nextSheet: Record<SheetSize, SheetSize> = { peek: 'half', half: 'full', full: 'peek' }
+/** 지도 위에 시트가 겹쳐 뜨는 화면 폭 (index.css의 900px과 같게) */
+const isSheetLayout = () => window.matchMedia('(max-width: 900px)').matches
+
 /** 이동 구간 길찾기 상태 — 실제 경로 API를 쓰는지, 불러오는 중인지 */
 export type RouteStatus = { enabled: boolean; loading: boolean; note: string }
 
@@ -72,21 +83,33 @@ function optionText(option: TravelOption, country: Country, showSource: boolean)
   return parts.join(' · ')
 }
 
+/** 이동 구간 — 평소엔 "🚇 15분 · 1.2km" 한 줄, 누르면 요금·추천·다른 수단까지 */
 function MoveRow({ leg, country, showSource }: { leg: Leg; country: Country; showSource: boolean }) {
+  const [open, setOpen] = useState(false)
   const best = leg.options.find((o) => o.mode === leg.recommended)!
   const others = leg.options.filter((o) => o.mode !== leg.recommended)
   return (
     <div className="move-row">
-      <div className="move-main">
+      <button type="button" className="move-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
         <span className="move-icon">{modeIcons[best.mode]}</span>
         <span>
-          {optionText(best, country, showSource)} · {formatDistance(best.meters)}
+          {formatDuration(best.minutes)} · {formatDistance(best.meters)}
         </span>
-        <span className="badge">{t('추천')}</span>
-        {showSource && best.source && <span className="source-tag">{best.source}</span>}
-      </div>
-      {others.length > 0 && (
-        <div className="move-alt">{others.map((o) => optionText(o, country, showSource)).join('  /  ')}</div>
+        <span className="move-caret" aria-hidden="true">
+          {open ? '▴' : '▾'}
+        </span>
+      </button>
+      {open && (
+        <div className="move-detail">
+          <div className="move-main">
+            <span>{optionText(best, country, showSource)}</span>
+            <span className="badge">{t('추천')}</span>
+            {showSource && best.source && <span className="source-tag">{best.source}</span>}
+          </div>
+          {others.length > 0 && (
+            <div className="move-alt">{others.map((o) => optionText(o, country, showSource)).join('  /  ')}</div>
+          )}
+        </div>
       )}
     </div>
   )
@@ -143,9 +166,59 @@ export default function ScheduleView({
   panelTop,
   editor,
   routeStatus,
+  dayColor,
 }: Props) {
   const [focus, setFocus] = useState<{ id: string; seq: number } | null>(null)
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
+  // 목록에서 마우스를 올린 장소 — 지도 마커를 잠깐 크게
+  const [hoverId, setHoverId] = useState<string | null>(null)
+  const hoverProps = (id: string) => ({
+    onMouseEnter: () => setHoverId(id),
+    onMouseLeave: () => setHoverId((prev) => (prev === id ? null : prev)),
+  })
+
+  // 휴대폰: 지도 위 하단 시트 — 손잡이를 끌거나 눌러서 크기 바꾸기
+  const layoutRef = useRef<HTMLDivElement>(null)
+  const [sheet, setSheet] = useState<SheetSize>('half')
+  const [sheetDragPx, setSheetDragPx] = useState<number | null>(null)
+  const sheetDrag = useRef<{ startY: number; startPx: number; moved: boolean } | null>(null)
+  const sheetHandleProps = {
+    onPointerDown: (e: PointerEvent<HTMLButtonElement>) => {
+      const height = layoutRef.current?.clientHeight ?? 0
+      sheetDrag.current = { startY: e.clientY, startPx: SHEET_RATIO[sheet] * height, moved: false }
+      e.currentTarget.setPointerCapture(e.pointerId)
+    },
+    onPointerMove: (e: PointerEvent<HTMLButtonElement>) => {
+      const d = sheetDrag.current
+      const height = layoutRef.current?.clientHeight ?? 0
+      if (!d || !height) return
+      const dy = d.startY - e.clientY
+      if (Math.abs(dy) > 4) d.moved = true
+      if (d.moved) {
+        setSheetDragPx(Math.min(height * SHEET_RATIO.full, Math.max(height * SHEET_MIN_RATIO, d.startPx + dy)))
+      }
+    },
+    onPointerUp: () => {
+      const d = sheetDrag.current
+      sheetDrag.current = null
+      if (!d) return
+      const height = layoutRef.current?.clientHeight ?? 0
+      if (!d.moved || sheetDragPx === null || !height) {
+        // 그냥 눌렀으면 다음 크기로
+        setSheet(nextSheet[sheet])
+      } else {
+        // 놓은 높이에서 가장 가까운 크기로 붙임
+        const ratio = sheetDragPx / height
+        const sizes = Object.keys(SHEET_RATIO) as SheetSize[]
+        setSheet(sizes.reduce((a, b) => (Math.abs(SHEET_RATIO[b] - ratio) < Math.abs(SHEET_RATIO[a] - ratio) ? b : a)))
+      }
+      setSheetDragPx(null)
+    },
+    onPointerCancel: () => {
+      sheetDrag.current = null
+      setSheetDragPx(null)
+    },
+  }
   // 끌어서 옮길 수 있는 줄: 방문 장소(id)와 경로에 넣은 음식점("meal:lunch")
   const dragIds = schedule.items.flatMap((it) =>
     it.kind === 'visit' ? [it.place.id] : it.kind === 'meal' && it.restaurant ? [`meal:${it.meal}`] : [],
@@ -289,10 +362,14 @@ export default function ScheduleView({
   function focusOnMap(id: string) {
     setHighlightedId(id)
     setFocus((prev) => ({ id, seq: (prev?.seq ?? 0) + 1 }))
+    // 휴대폰: 시트를 내려서 지도가 보이게
+    if (isSheetLayout()) setSheet('peek')
   }
 
   function onMarkerClick(id: string) {
     setHighlightedId(id)
+    // 휴대폰: 시트가 내려가 있으면 올려서 그 장소 줄이 보이게
+    if (isSheetLayout() && sheet === 'peek') setSheet('half')
     document.getElementById(`stop-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
@@ -308,13 +385,18 @@ export default function ScheduleView({
   }
 
   return (
-    <div className="result-layout">
+    <div
+      ref={layoutRef}
+      className="result-layout"
+      style={dayColor ? ({ '--day-color': dayColor } as CSSProperties) : undefined}
+    >
       <section className="result-map">
         <MapView
           center={country.center}
           markers={markers}
           paths={paths}
           focus={focus}
+          activeId={hoverId ?? highlightedId}
           onMarkerClick={onMarkerClick}
         />
         {usedModes.length > 0 && (
@@ -335,301 +417,319 @@ export default function ScheduleView({
         )}
       </section>
 
-      <div className="wizard schedule">
-        {panelTop}
-        <div className="schedule-head">
-          <h2 className="wizard-title">
-            {country.flag} {title}
-          </h2>
-          {actions && <div className="schedule-actions">{actions}</div>}
-        </div>
-        {banner}
+      <div
+        className={`result-sheet ${sheetDragPx !== null ? 'dragging' : ''}`}
+        style={{ '--sheet-h': sheetDragPx !== null ? `${sheetDragPx}px` : `${SHEET_RATIO[sheet] * 100}%` } as CSSProperties}
+      >
+        <button type="button" className="sheet-handle" aria-label={t('정보창 크기 바꾸기')} {...sheetHandleProps} />
+        <div className="wizard schedule">
+          {panelTop}
+          <div className="schedule-head">
+            <h2 className="wizard-title">
+              {country.flag} {title}
+            </h2>
+            {actions && <div className="schedule-actions">{actions}</div>}
+          </div>
+          {banner}
 
-        <dl className="stats">
-          <div>
-            <dt>{t('일정')}</dt>
-            <dd>
-              {toHHMM(schedule.startAt)} ~ {toHHMM(schedule.endAt)}
-            </dd>
-          </div>
-          <div>
-            <dt>{t('총 이동')}</dt>
-            <dd>{formatDuration(schedule.totalMoveMinutes)}</dd>
-          </div>
-          <div>
-            <dt>{t('걷는 거리')}</dt>
-            <dd>{formatDistance(schedule.totalWalkMeters)}</dd>
-          </div>
-          <div>
-            <dt>{spare >= 0 ? t('남는 시간') : t('초과')}</dt>
-            <dd className={spare < 0 ? 'error' : ''}>{formatDuration(Math.abs(spare))}</dd>
-          </div>
-        </dl>
+          <dl className="stats">
+            <div>
+              <dt>{t('일정')}</dt>
+              <dd>
+                {toHHMM(schedule.startAt)} ~ {toHHMM(schedule.endAt)}
+              </dd>
+            </div>
+            <div>
+              <dt>{t('총 이동')}</dt>
+              <dd>{formatDuration(schedule.totalMoveMinutes)}</dd>
+            </div>
+            <div>
+              <dt>{t('걷는 거리')}</dt>
+              <dd>{formatDistance(schedule.totalWalkMeters)}</dd>
+            </div>
+            <div>
+              <dt>{spare >= 0 ? t('남는 시간') : t('초과')}</dt>
+              <dd className={spare < 0 ? 'error' : ''}>{formatDuration(Math.abs(spare))}</dd>
+            </div>
+          </dl>
 
-        {editor && (
-          <TimeRangeEditor
-            startTime={toHHMM(schedule.startAt)}
-            endTime={toHHMM(schedule.limitAt)}
-            onChange={editor.onChangeTimes}
-          />
-        )}
+          {editor && (
+            <TimeRangeEditor
+              startTime={toHHMM(schedule.startAt)}
+              endTime={toHHMM(schedule.limitAt)}
+              onChange={editor.onChangeTimes}
+            />
+          )}
 
-        {schedule.overMinutes > 0 && (
-          <div className="warning">
-            <p>
-              ⚠️ {t('종료 시각({time})보다', { time: toHHMM(schedule.limitAt) })}{' '}
-              <strong>{formatDuration(schedule.overMinutes)}</strong> {t('늦게 끝납니다.')}
-              {editor && ` ${t('아래 중 하나를 고르면 바로 다시 계산합니다.')}`}
-            </p>
-            {editor && (
-              <div className="adjustments">
-                {adjustments.map((a) => (
-                  <button key={JSON.stringify(a)} type="button" className="btn small" onClick={() => editor.onApply(a)}>
-                    {adjustmentText(a)}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+          {schedule.overMinutes > 0 && (
+            <div className="warning">
+              <p>
+                ⚠️ {t('종료 시각({time})보다', { time: toHHMM(schedule.limitAt) })}{' '}
+                <strong>{formatDuration(schedule.overMinutes)}</strong> {t('늦게 끝납니다.')}
+                {editor && ` ${t('아래 중 하나를 고르면 바로 다시 계산합니다.')}`}
+              </p>
+              {editor && (
+                <div className="adjustments">
+                  {adjustments.map((a) => (
+                    <button key={JSON.stringify(a)} type="button" className="btn small" onClick={() => editor.onApply(a)}>
+                      {adjustmentText(a)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
-        {editor && (
-          <div className="order-bar">
-            <span className="hint">
-              {isCustomOrder ? t('직접 바꾼 순서입니다.') : t('이동시간이 가장 짧은 순서로 정했습니다.')}{' '}
-              {t('장소나 빨간 원을 꾹 눌러 끌면 순서를 바꿀 수 있어요.')}
-            </span>
-            {isCustomOrder && (
-              <button type="button" className="btn small" onClick={editor.onResetOrder}>
-                {t('최적 순서로 되돌리기')}
+          {editor && (
+            <div className="order-bar">
+              <span className="hint">
+                {isCustomOrder ? t('직접 바꾼 순서입니다.') : t('이동시간이 가장 짧은 순서로 정했습니다.')}{' '}
+                {t('장소나 빨간 원을 꾹 눌러 끌면 순서를 바꿀 수 있어요.')}
+              </span>
+              {/* 순서를 바꾸거나 장소를 더한 뒤에도 언제든 다시 최적화 */}
+              <button
+                type="button"
+                className="btn small"
+                disabled={!isCustomOrder}
+                title={isCustomOrder ? undefined : t('이미 최적 순서입니다')}
+                onClick={editor.onResetOrder}
+              >
+                🔀 {t('경로 최적화')}
               </button>
-            )}
-          </div>
-        )}
+            </div>
+          )}
 
-        <ol className="timeline">
-          {schedule.items.map((item, i) => {
-            if (item.kind === 'move') {
+          <ol className="timeline">
+            {schedule.items.map((item, i) => {
+              if (item.kind === 'move') {
+                return (
+                  <li
+                    key={i}
+                    className="timeline-move"
+                    style={{ borderLeftColor: pathStyles[item.leg.recommended].color }}
+                  >
+                    <MoveRow leg={item.leg} country={country} showSource={!!routeStatus?.enabled} />
+                  </li>
+                )
+              }
+              if (item.kind === 'meal') {
+                const chosen = mealChoices[item.meal]
+                const options = chosen ? [] : mealOptions(item.near)
+                const dragId = `meal:${item.meal}`
+                const movable = !!item.restaurant
+                return (
+                  <li
+                    key={i}
+                    id={chosen ? `stop-${chosen.id}` : undefined}
+                    className={[
+                      'timeline-stop meal',
+                      chosen && highlightedId === chosen.id && 'highlighted',
+                      movable && dragClasses(dragId),
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    {...(chosen ? hoverProps(chosen.id) : {})}
+                    {...(editor && movable ? rowProps(dragId) : {})}
+                  >
+                    {editor && movable && (
+                      <span className="drag-grip" aria-hidden="true">
+                        ⠿
+                      </span>
+                    )}
+                    <span className="stop-time">{toHHMM(item.start)}</span>
+                    {item.restaurant ? (
+                      <span className="stop-marker meal-stop" aria-label={t('식사 장소')} />
+                    ) : (
+                      <span className="stop-marker">🍽️</span>
+                    )}
+                    <div className="stop-body">
+                      {chosen ? (
+                        <>
+                          <button type="button" className="as-link" onClick={() => focusOnMap(chosen.id)}>
+                            <div className="stop-name">
+                              {t(mealLabels[item.meal])} · {chosen.name}
+                            </div>
+                          </button>
+                          <div className="hint">
+                            <Stars rating={chosen.rating} reviewCount={chosen.reviewCount} /> ·{' '}
+                            {formatDuration(item.end - item.start)}{' '}
+                            {editor && (
+                              <button
+                                type="button"
+                                className="link-btn"
+                                onClick={() => editor.onChooseMeal(item.meal, null)}
+                              >
+                                {t('다른 곳 고르기')}
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="stop-name">{t('{meal} 식사', { meal: t(mealLabels[item.meal]) })}</div>
+                          <div className="hint">
+                            {t('{name} 근처', { name: item.near.name })} · {formatDuration(item.end - item.start)}
+                            {' · '}
+                            {editor ? t('아래에서 음식점을 골라 주세요') : t('음식점 미정')}
+                          </div>
+                          {!editor ? null : loading ? (
+                            <p className="hint">{t('음식점을 찾는 중…')}</p>
+                          ) : (
+                            <ul className="meal-options">
+                              {options.map((rec) => (
+                                <li key={rec.poi.id}>
+                                  <a
+                                    className="meal-option-name gmaps-name"
+                                    href={googleMapsUrl(rec.poi)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={openInNewWindow}
+                                    title={t('Google 지도에서 열기')}
+                                  >
+                                    {rec.poi.name} ↗
+                                  </a>
+                                  <Stars rating={rec.poi.rating} reviewCount={rec.poi.reviewCount} />
+                                  <span className="muted">{t('도보 {n}분', { n: rec.walkMinutes })}</span>
+                                  <button
+                                    type="button"
+                                    className="btn small"
+                                    onClick={() => editor.onChooseMeal(item.meal, rec.poi)}
+                                  >
+                                    {t('선택')}
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </li>
+                )
+              }
+              if (item.kind === 'lodging') {
+                // 출발·도착 두 줄 중 첫 줄에만 id를 붙여 지도 마커 클릭 시 스크롤 대상이 되게 함
+                const isFirst = schedule.items.findIndex((it) => it.kind === 'lodging') === i
+                return (
+                  <li
+                    key={i}
+                    id={isFirst ? `stop-${item.place.id}` : undefined}
+                    className={`timeline-stop lodging ${highlightedId === item.place.id ? 'highlighted' : ''}`}
+                    {...hoverProps(item.place.id)}
+                  >
+                    <span className="stop-time">{toHHMM(item.start)}</span>
+                    <span className="stop-marker">🏨</span>
+                    <button type="button" className="stop-body as-link" onClick={() => focusOnMap(item.place.id)}>
+                      <div className="stop-name">{item.role === 'depart' ? t('숙소에서 출발') : t('숙소 도착')}</div>
+                      <div className="hint">{item.place.name}</div>
+                    </button>
+                  </li>
+                )
+              }
+              const last = schedule.order.length
+              const id = item.place.id
+              const rowClass = ['timeline-stop', highlightedId === id && 'highlighted', dragClasses(id)]
+                .filter(Boolean)
+                .join(' ')
+              const stayMinutes = item.end - item.start
+              // 목록에 없는 값(예: 45분)도 고를 수 있게 끼워 넣음
+              const stayChoices = STAY_OPTIONS.includes(stayMinutes)
+                ? STAY_OPTIONS
+                : [...STAY_OPTIONS, stayMinutes].sort((a, b) => a - b)
               return (
-                <li
-                  key={i}
-                  className="timeline-move"
-                  style={{ borderLeftColor: pathStyles[item.leg.recommended].color }}
-                >
-                  <MoveRow leg={item.leg} country={country} showSource={!!routeStatus?.enabled} />
-                </li>
-              )
-            }
-            if (item.kind === 'meal') {
-              const chosen = mealChoices[item.meal]
-              const options = chosen ? [] : mealOptions(item.near)
-              const dragId = `meal:${item.meal}`
-              const movable = !!item.restaurant
-              return (
-                <li
-                  key={i}
-                  id={chosen ? `stop-${chosen.id}` : undefined}
-                  className={[
-                    'timeline-stop meal',
-                    chosen && highlightedId === chosen.id && 'highlighted',
-                    movable && dragClasses(dragId),
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  {...(editor && movable ? rowProps(dragId) : {})}
-                >
-                  {editor && movable && (
+                <li key={i} id={`stop-${id}`} className={rowClass} {...hoverProps(id)} {...(editor ? rowProps(id) : {})}>
+                  {editor && (
                     <span className="drag-grip" aria-hidden="true">
                       ⠿
                     </span>
                   )}
                   <span className="stop-time">{toHHMM(item.start)}</span>
-                  {item.restaurant ? (
-                    <span className="stop-marker meal-stop" aria-label={t('식사 장소')} />
-                  ) : (
-                    <span className="stop-marker">🍽️</span>
-                  )}
+                  <span className="stop-marker number">{item.order}</span>
+                  <PlaceThumb place={item.place} />
+                  {/* 머무를 시간은 이름 아래 줄에 — 사진이 들어가도 이름이 꺾이지 않게 */}
                   <div className="stop-body">
-                    {chosen ? (
-                      <>
-                        <button type="button" className="as-link" onClick={() => focusOnMap(chosen.id)}>
-                          <div className="stop-name">
-                            {t(mealLabels[item.meal])} · {chosen.name}
-                          </div>
-                        </button>
-                        <div className="hint">
-                          <Stars rating={chosen.rating} reviewCount={chosen.reviewCount} /> ·{' '}
-                          {formatDuration(item.end - item.start)}{' '}
-                          {editor && (
-                            <button
-                              type="button"
-                              className="link-btn"
-                              onClick={() => editor.onChooseMeal(item.meal, null)}
-                            >
-                              {t('다른 곳 고르기')}
-                            </button>
-                          )}
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="stop-name">{t('{meal} 식사', { meal: t(mealLabels[item.meal]) })}</div>
-                        <div className="hint">
-                          {t('{name} 근처', { name: item.near.name })} · {formatDuration(item.end - item.start)}
-                          {' · '}
-                          {editor ? t('아래에서 음식점을 골라 주세요') : t('음식점 미정')}
-                        </div>
-                        {!editor ? null : loading ? (
-                          <p className="hint">{t('음식점을 찾는 중…')}</p>
-                        ) : (
-                          <ul className="meal-options">
-                            {options.map((rec) => (
-                              <li key={rec.poi.id}>
-                                <a
-                                  className="meal-option-name gmaps-name"
-                                  href={googleMapsUrl(rec.poi)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={openInNewWindow}
-                                  title={t('Google 지도에서 열기')}
-                                >
-                                  {rec.poi.name} ↗
-                                </a>
-                                <Stars rating={rec.poi.rating} reviewCount={rec.poi.reviewCount} />
-                                <span className="muted">{t('도보 {n}분', { n: rec.walkMinutes })}</span>
-                                <button
-                                  type="button"
-                                  className="btn small"
-                                  onClick={() => editor.onChooseMeal(item.meal, rec.poi)}
-                                >
-                                  {t('선택')}
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </>
+                    <button type="button" className="as-link" onClick={() => focusOnMap(item.place.id)}>
+                      <div className="stop-name">{item.place.name}</div>
+                      <div className="hint">
+                        {toHHMM(item.start)} ~ {toHHMM(item.end)}
+                        {!editor && ` · ${formatDuration(stayMinutes)}`}
+                        <span className="map-hint"> · {t('지도에서 보기')}</span>
+                      </div>
+                    </button>
+                    {editor && (
+                      <select
+                        className="stay-inline"
+                        aria-label={t('{name} 머무를 시간', { name: item.place.name })}
+                        value={stayMinutes}
+                        onChange={(e) => editor.onChangeStay(id, Number(e.target.value))}
+                      >
+                        {stayChoices.map((m) => (
+                          <option key={m} value={m}>
+                            {formatDuration(m)}
+                          </option>
+                        ))}
+                      </select>
                     )}
                   </div>
-                </li>
-              )
-            }
-            if (item.kind === 'lodging') {
-              // 출발·도착 두 줄 중 첫 줄에만 id를 붙여 지도 마커 클릭 시 스크롤 대상이 되게 함
-              const isFirst = schedule.items.findIndex((it) => it.kind === 'lodging') === i
-              return (
-                <li
-                  key={i}
-                  id={isFirst ? `stop-${item.place.id}` : undefined}
-                  className={`timeline-stop lodging ${highlightedId === item.place.id ? 'highlighted' : ''}`}
-                >
-                  <span className="stop-time">{toHHMM(item.start)}</span>
-                  <span className="stop-marker">🏨</span>
-                  <button type="button" className="stop-body as-link" onClick={() => focusOnMap(item.place.id)}>
-                    <div className="stop-name">{item.role === 'depart' ? t('숙소에서 출발') : t('숙소 도착')}</div>
-                    <div className="hint">{item.place.name}</div>
-                  </button>
-                </li>
-              )
-            }
-            const last = schedule.order.length
-            const id = item.place.id
-            const rowClass = ['timeline-stop', highlightedId === id && 'highlighted', dragClasses(id)]
-              .filter(Boolean)
-              .join(' ')
-            const stayMinutes = item.end - item.start
-            // 목록에 없는 값(예: 45분)도 고를 수 있게 끼워 넣음
-            const stayChoices = STAY_OPTIONS.includes(stayMinutes)
-              ? STAY_OPTIONS
-              : [...STAY_OPTIONS, stayMinutes].sort((a, b) => a - b)
-            return (
-              <li key={i} id={`stop-${id}`} className={rowClass} {...(editor ? rowProps(id) : {})}>
-                {editor && (
-                  <span className="drag-grip" aria-hidden="true">
-                    ⠿
-                  </span>
-                )}
-                <span className="stop-time">{toHHMM(item.start)}</span>
-                <span className="stop-marker number">{item.order}</span>
-                <button type="button" className="stop-body as-link" onClick={() => focusOnMap(item.place.id)}>
-                  <div className="stop-name">{item.place.name}</div>
-                  <div className="hint">
-                    {toHHMM(item.start)} ~ {toHHMM(item.end)}
-                    {!editor && ` · ${formatDuration(stayMinutes)}`} · {t('지도에서 보기')}
+                  {editor && (
+                  <div className="reorder">
+                    <button
+                      type="button"
+                      aria-label={t('앞으로')}
+                      disabled={item.order === 1}
+                      onClick={() => editor.onMove(item.place.id, -1)}
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={t('뒤로')}
+                      disabled={item.order === last}
+                      onClick={() => editor.onMove(item.place.id, 1)}
+                    >
+                      ▼
+                    </button>
                   </div>
-                </button>
-                {editor && (
-                  <select
-                    className="stay-inline"
-                    aria-label={t('{name} 머무를 시간', { name: item.place.name })}
-                    value={stayMinutes}
-                    onChange={(e) => editor.onChangeStay(id, Number(e.target.value))}
-                  >
-                    {stayChoices.map((m) => (
-                      <option key={m} value={m}>
-                        {formatDuration(m)}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                {editor && (
-                <div className="reorder">
-                  <button
-                    type="button"
-                    aria-label={t('앞으로')}
-                    disabled={item.order === 1}
-                    onClick={() => editor.onMove(item.place.id, -1)}
-                  >
-                    ▲
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={t('뒤로')}
-                    disabled={item.order === last}
-                    onClick={() => editor.onMove(item.place.id, 1)}
-                  >
-                    ▼
-                  </button>
-                </div>
-                )}
-                {editor && (
-                  <button
-                    type="button"
-                    className="remove-btn stop-remove"
-                    aria-label={t('{name} 빼기', { name: item.place.name })}
-                    title={last > 1 ? t('일정에서 빼기') : t('장소가 하나뿐이라 뺄 수 없습니다')}
-                    disabled={last <= 1}
-                    onClick={() => editor.onRemovePlace(item.place.id)}
-                  >
-                    ✕
-                  </button>
-                )}
-              </li>
-            )
-          })}
-        </ol>
-        {drag && (
-          <div className="drag-ghost" style={{ left: drag.x + 14, top: drag.y - 22 }} aria-hidden="true">
-            ⠿ {dragGhostName ?? ''}
-          </div>
-        )}
-        <p className="hint">
-          {routeStatus?.loading ? `🔄 ${t('실제 경로를 불러오는 중…')} ` : ''}
-          {routeStatus?.note ?? t('이동시간은 거리로 계산한 추정치이고, 지도 경로선은 직선입니다.')}
-        </p>
+                  )}
+                  {editor && (
+                    <button
+                      type="button"
+                      className="remove-btn stop-remove"
+                      aria-label={t('{name} 빼기', { name: item.place.name })}
+                      title={last > 1 ? t('일정에서 빼기') : t('장소가 하나뿐이라 뺄 수 없습니다')}
+                      disabled={last <= 1}
+                      onClick={() => editor.onRemovePlace(item.place.id)}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </li>
+              )
+            })}
+          </ol>
+          {drag && (
+            <div className="drag-ghost" style={{ left: drag.x + 14, top: drag.y - 22 }} aria-hidden="true">
+              ⠿ {dragGhostName ?? ''}
+            </div>
+          )}
+          <p className="hint">
+            {routeStatus?.loading ? `🔄 ${t('실제 경로를 불러오는 중…')} ` : ''}
+            {routeStatus?.note ?? t('이동시간은 거리로 계산한 추정치이고, 지도 경로선은 직선입니다.')}
+          </p>
 
-        <NearbyPanel
-          stops={stops}
-          kind={kind}
-          scope={activeScope}
-          onKindChange={setKind}
-          onScopeChange={setScope}
-          recommendations={recommendations}
-          loading={loading}
-          highlightedId={highlightedId}
-          onFocus={focusOnMap}
-          onAdd={editor?.onAddPlace}
-        />
+          <NearbyPanel
+            stops={stops}
+            kind={kind}
+            scope={activeScope}
+            onKindChange={setKind}
+            onScopeChange={setScope}
+            recommendations={recommendations}
+            loading={loading}
+            highlightedId={highlightedId}
+            onFocus={focusOnMap}
+            onAdd={editor?.onAddPlace}
+          />
+        </div>
       </div>
     </div>
   )

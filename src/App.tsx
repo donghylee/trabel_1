@@ -2,22 +2,26 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import logo from './assets/logo.png'
 import AuthPage, { UserIcon } from './components/AuthPage'
 import CommunityPage from './components/CommunityPage'
+import ConfirmHost from './components/ConfirmDialog'
 import MyPage, { type MyPageSelection } from './components/MyPage'
 import SaveDialog from './components/SaveDialog'
 import ScheduleView from './components/ScheduleView'
+import { TabIcons } from './components/TabIcons'
 import WelcomeNotice from './components/WelcomeNotice'
 import Wizard from './components/Wizard'
 import { findCountry, placesOf, tripTitle } from './data/catalog'
 import { useFetchRealLegs, useRealLegStore } from './hooks/useRealLegs'
 import { useBookmarks } from './hooks/useBookmarks'
 import { useTrips } from './hooks/useTrips'
+import { dayColor } from './lib/dayColors'
 import { t, useI18n } from './i18n'
 import { toPlace } from './lib/recommend'
 import { applyAdjustment, buildSchedule, suggestAdjustments } from './lib/schedule'
-import { loadSession, logOut, type SessionUser } from './lib/auth'
+import { loadSession, logOut, watchSession, type SessionUser } from './lib/auth'
 import { deleteDay, deleteTrip, nextDayNumber, renameTrip, upsertDay, type SaveTarget } from './lib/storage'
 import { toHHMM } from './lib/time'
 import { routeNote } from './services/routes'
+import { serverEnabled } from './services/supabase'
 import type {
   Adjustment,
   MealChoices,
@@ -47,7 +51,8 @@ type Editing = { tripId: string; dayNumber: number }
 export default function App() {
   // 언어가 바뀌면 App부터 다시 그려 모든 글자가 바뀌게
   const { lang, setLang } = useI18n()
-  const [view, setView] = useState<'planner' | 'mypage' | 'community' | 'login'>('planner')
+  // bookmarks = 휴대폰 하단 탭바의 [찜] (마이페이지의 찜한 여행만)
+  const [view, setView] = useState<'planner' | 'mypage' | 'bookmarks' | 'community' | 'login'>('planner')
   // 마이페이지 탭 옆 ▾ 메뉴 (마이페이지 / 커뮤니티)
   // 헤더의 펼침 메뉴: 'pages' = 커뮤니티 ▾ (커뮤니티 / 마이페이지), 'account' = 닉네임 (계정 설정 / 로그아웃)
   const [openMenu, setOpenMenu] = useState<'pages' | 'account' | null>(null)
@@ -66,7 +71,7 @@ export default function App() {
   // 고른 음식점을 끌어서 옮긴 자리 (없으면 식사 시간대에 맞춰 자동)
   const [mealSlots, setMealSlots] = useState<MealSlots>({})
 
-  const { trips, setTrips, saveFailed } = useTrips()
+  const { trips, setTrips, saveFailed } = useTrips(user)
   const bookmarks = useBookmarks(user)
   const [editing, setEditing] = useState<Editing | null>(null)
   const [saveOpen, setSaveOpen] = useState(false)
@@ -75,6 +80,9 @@ export default function App() {
   // 로그인하지 않고 저장을 누르면 안내 (로그인하면 만들던 일정으로 돌아옴)
   const [loginNeeded, setLoginNeeded] = useState(false)
   const [myPageSelection, setMyPageSelection] = useState<MyPageSelection>(null)
+
+  // 서버 로그인을 쓰면: 기억해 둔 로그인이 아직 유효한지 확인하고, 만료·다른 탭 로그아웃을 반영
+  useEffect(() => watchSession(setUser), [])
 
   useEffect(() => {
     if (!openMenu) return
@@ -87,8 +95,8 @@ export default function App() {
   }, [openMenu])
 
   function logout() {
-    logOut()
     setUser(null)
+    void logOut()
   }
 
   const country = findCountry(input.countryCode)
@@ -250,7 +258,14 @@ export default function App() {
       ? `${tripTitle(editingTrip)} · ${t('{n}일차', { n: editing.dayNumber })}`
       : t('{country} 하루 일정', { country: country?.name ?? '' })
   // 지도가 나오는 화면은 창 전체 폭, 나머지는 가운데 카드 폭
-  const wide = view === 'login' || view === 'community' ? false : view === 'mypage' ? !!myPageSelection : phase === 'result'
+  const wide =
+    view === 'login' || view === 'community'
+      ? false
+      : view === 'mypage'
+        ? !!myPageSelection
+        : view === 'bookmarks'
+          ? !!myPageSelection?.bookmark
+          : phase === 'result'
 
   return (
     <div className="app">
@@ -272,12 +287,20 @@ export default function App() {
             <img src={logo} alt={t('PLAN:J 국가 선택으로')} />
           </button>
           <nav className="header-tabs">
-            <button type="button" className={view === 'planner' ? 'active' : ''} onClick={() => setView('planner')}>
+            {/* nav-page: 휴대폰에서는 숨기고 하단 탭바로 */}
+            <button
+              type="button"
+              className={`nav-page ${view === 'planner' ? 'active' : ''}`}
+              onClick={() => setView('planner')}
+            >
               {t('일정 만들기')}
             </button>
-            <div ref={pagesMenuRef} className={`tab-menu ${view === 'mypage' || view === 'community' ? 'active' : ''}`}>
+            <div
+              ref={pagesMenuRef}
+              className={`tab-menu nav-page ${view === 'mypage' || view === 'bookmarks' || view === 'community' ? 'active' : ''}`}
+            >
               <button type="button" onClick={() => setView('community')}>
-                {view === 'mypage' ? t('마이페이지') : t('커뮤니티')}
+                {view === 'mypage' ? t('마이페이지') : view === 'bookmarks' ? t('찜한 여행') : t('커뮤니티')}
                 {view === 'mypage' && trips.length > 0 && <span className="count">{trips.length}</span>}
               </button>
               <button
@@ -294,6 +317,7 @@ export default function App() {
                   {(
                     [
                       ['community', t('커뮤니티')],
+                      ['bookmarks', t('찜한 여행')],
                       ['mypage', t('마이페이지')],
                     ] as const
                   ).map(([key, label]) => (
@@ -404,10 +428,13 @@ export default function App() {
             }}
           />
         </main>
-      ) : view === 'mypage' ? (
+      ) : view === 'mypage' || view === 'bookmarks' ? (
         <main className={`app-main ${wide ? 'wide' : ''}`}>
           <MyPage
+            section={view === 'bookmarks' ? 'bookmarks' : 'all'}
             trips={trips}
+            loggedIn={!!user}
+            onLogin={() => setView('login')}
             bookmarks={user ? bookmarks.bookmarks : null}
             onRemoveBookmark={bookmarks.remove}
             onOpenCommunity={() => setView('community')}
@@ -439,6 +466,7 @@ export default function App() {
               isCustomOrder={customOrder !== null}
               mealChoices={mealChoices}
               title={scheduleTitle}
+              dayColor={dayColor(editing?.dayNumber ?? 1)}
               actions={
                 <>
                   <button
@@ -466,7 +494,9 @@ export default function App() {
                   </p>
                 ) : saveFailed ? (
                   <p className="notice error-notice">
-                    {t('이 브라우저에 저장하지 못했습니다. 저장 공간이나 사생활 보호 설정을 확인해 주세요.')}
+                    {serverEnabled
+                      ? t('서버에 저장하지 못했습니다. 인터넷 연결을 확인한 뒤 다시 저장해 주세요.')
+                      : t('이 브라우저에 저장하지 못했습니다. 저장 공간이나 사생활 보호 설정을 확인해 주세요.')}
                   </p>
                 ) : justSaved && editingTrip && editing ? (
                   <div className="notice success">
@@ -535,7 +565,36 @@ export default function App() {
         </main>
       )}
 
+      {/* 휴대폰 하단 탭바 — 넓은 화면에서는 CSS로 숨김 */}
+      <nav className="tab-bar" aria-label={t('주요 메뉴')}>
+        {(
+          [
+            ['planner', t('일정 만들기'), TabIcons.planner],
+            ['community', t('커뮤니티'), TabIcons.community],
+            // '찜'의 영어는 버튼용 'Save'라서 탭 이름은 따로
+            ['bookmarks', lang === 'en' ? 'Saved' : '찜', TabIcons.bookmarks],
+            ['mypage', t('마이'), TabIcons.mypage],
+          ] as const
+        ).map(([key, label, icon]) => (
+          <button
+            key={key}
+            type="button"
+            className={view === key ? 'active' : ''}
+            aria-current={view === key ? 'page' : undefined}
+            onClick={() => {
+              setView(key)
+              setOpenMenu(null)
+            }}
+          >
+            {icon}
+            {label}
+          </button>
+        ))}
+      </nav>
+
       <WelcomeNotice />
+      {/* 삭제 확인 창 (lib/confirm의 askConfirm) */}
+      <ConfirmHost />
 
       {saveOpen && country && (
         <SaveDialog

@@ -20,6 +20,7 @@ export default function GoogleMapView({
   markers,
   paths,
   focus,
+  activeId,
   onMarkerClick,
   onMapClick,
   initialZoom = 13,
@@ -32,7 +33,9 @@ export default function GoogleMapView({
     markers: [],
     lines: [],
   })
-  const markerById = useRef(new Map<string, { marker: google.maps.marker.AdvancedMarkerElement; html: string }>())
+  const markerById = useRef(
+    new Map<string, { marker: google.maps.marker.AdvancedMarkerElement; html: string; content: HTMLElement; zIndex: number }>(),
+  )
   const [ready, setReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // 핸들러가 바뀌어도 지도를 다시 만들지 않도록 ref로 보관
@@ -110,12 +113,13 @@ export default function GoogleMapView({
       label.textContent = m.label
       content.appendChild(label)
 
+      const zIndex = variant === 'candidate' ? 2000 : variant === 'poi' ? 0 : 1000
       const marker = new libs.marker.AdvancedMarkerElement({
         map,
         position: m.position,
         content,
         title: m.title,
-        zIndex: variant === 'candidate' ? 2000 : variant === 'poi' ? 0 : 1000,
+        zIndex,
         gmpClickable: true,
       })
       const html = `<strong>${escapeHtml(m.title)}</strong><br>${escapeHtml(m.subtitle)}`
@@ -124,7 +128,7 @@ export default function GoogleMapView({
         infoRef.current?.open({ map, anchor: marker })
         onMarkerClickRef.current(m.id)
       })
-      markerById.current.set(m.id, { marker, html })
+      markerById.current.set(m.id, { marker, html, content, zIndex })
       return marker
     })
 
@@ -151,6 +155,16 @@ export default function GoogleMapView({
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, anchorKey])
+
+  // 강조할 마커만 크게, 다른 마커 위로
+  useEffect(() => {
+    if (!ready) return
+    for (const [id, { marker, content, zIndex }] of markerById.current) {
+      const active = id === activeId
+      content.classList.toggle('active', active)
+      marker.zIndex = active ? 3000 : zIndex
+    }
+  }, [ready, activeId, markers])
 
   useEffect(() => {
     const map = mapRef.current

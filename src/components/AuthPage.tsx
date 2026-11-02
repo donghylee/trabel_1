@@ -1,8 +1,8 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { t } from '../i18n'
+import { isPhoto } from '../lib/photos'
 import {
   DEFAULT_ICON,
-  isIdTaken,
   isNicknameTaken,
   logIn,
   signUp,
@@ -20,7 +20,7 @@ type Props = {
 /** 프로필 아이콘 — 이모지면 글자로, 사진이면 동그랗게 잘라서 */
 export function UserIcon({ icon, size = 'small' }: { icon?: string; size?: 'small' | 'medium' | 'large' }) {
   const value = icon || DEFAULT_ICON
-  return value.startsWith('data:') ? (
+  return isPhoto(value) ? (
     <img className={`user-icon ${size}`} src={value} alt="" />
   ) : (
     <span className={`user-icon ${size}`} aria-hidden="true">
@@ -31,7 +31,7 @@ export function UserIcon({ icon, size = 'small' }: { icon?: string; size?: 'smal
 
 export default function AuthPage({ user, onLogin, onUserChange }: Props) {
   const [mode, setMode] = useState<'login' | 'signup'>('login')
-  // 가입 직후 로그인 화면에 ID를 채워 둠
+  // 가입 직후 로그인 화면에 E-mail을 채워 둠
   const [justSignedUp, setJustSignedUp] = useState<string | null>(null)
 
   if (user) return <AccountInfo user={user} onUserChange={onUserChange} />
@@ -40,39 +40,48 @@ export default function AuthPage({ user, onLogin, onUserChange }: Props) {
     return (
       <SignupForm
         onCancel={() => setMode('login')}
-        onDone={(id) => {
-          setJustSignedUp(id)
+        onDone={(email) => {
+          setJustSignedUp(email)
           setMode('login')
         }}
       />
     )
   }
 
-  return <LoginForm initialId={justSignedUp ?? ''} justSignedUp={!!justSignedUp} onLogin={onLogin} onSignup={() => setMode('signup')} />
+  return (
+    <LoginForm
+      initialEmail={justSignedUp ?? ''}
+      justSignedUp={!!justSignedUp}
+      onLogin={onLogin}
+      onSignup={() => setMode('signup')}
+    />
+  )
 }
 
 function LoginForm({
-  initialId,
+  initialEmail,
   justSignedUp,
   onLogin,
   onSignup,
 }: {
-  initialId: string
+  initialEmail: string
   justSignedUp: boolean
   onLogin: (user: SessionUser) => void
   onSignup: () => void
 }) {
-  const [id, setId] = useState(initialId)
+  const [email, setEmail] = useState(initialEmail)
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const idRef = useRef<HTMLInputElement>(null)
+  // 서버에 확인하는 동안 버튼을 막아 두 번 눌리지 않게
+  const [busy, setBusy] = useState(false)
+  const emailRef = useRef<HTMLInputElement>(null)
   const pwRef = useRef<HTMLInputElement>(null)
 
   async function submit(e: FormEvent) {
     e.preventDefault()
-    if (!id.trim()) {
-      setError(t('ID를 입력해 주세요.'))
-      idRef.current?.focus()
+    if (!email.trim()) {
+      setError(t('E-mail을 입력해 주세요.'))
+      emailRef.current?.focus()
       return
     }
     if (!password) {
@@ -80,9 +89,11 @@ function LoginForm({
       pwRef.current?.focus()
       return
     }
-    const user = await logIn(id, password)
+    setBusy(true)
+    const user = await logIn(email, password)
+    setBusy(false)
     if (!user) {
-      setError(t('ID 또는 PW가 올바르지 않습니다.'))
+      setError(t('E-mail 또는 PW가 올바르지 않습니다.'))
       return
     }
     onLogin(user)
@@ -95,13 +106,14 @@ function LoginForm({
       <form className="login-row" onSubmit={submit} noValidate>
         <div className="login-inputs">
           <input
-            ref={idRef}
+            ref={emailRef}
             className="auth-input"
-            placeholder="ID"
-            autoComplete="username"
-            value={id}
-            onChange={(e) => setId(e.target.value)}
-            aria-label="ID"
+            type="email"
+            placeholder="E-mail"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            aria-label="E-mail"
           />
           <input
             ref={pwRef}
@@ -114,7 +126,7 @@ function LoginForm({
             aria-label="PW"
           />
         </div>
-        <button type="submit" className="btn primary login-btn">
+        <button type="submit" className="btn primary login-btn" disabled={busy}>
           Login
         </button>
       </form>
@@ -126,30 +138,30 @@ function LoginForm({
   )
 }
 
-type Field = 'id' | 'nickname' | 'password' | 'passwordConfirm' | 'email'
+type Field = 'email' | 'nickname' | 'password' | 'passwordConfirm'
 
 const FIELD_LABELS: Record<Field, string> = {
-  id: 'ID',
+  email: 'E-mail',
   nickname: '닉네임',
   password: 'PW',
   passwordConfirm: 'PW 확인',
-  email: 'E-mail',
 }
-const FIELD_ORDER: Field[] = ['id', 'nickname', 'password', 'passwordConfirm', 'email']
+const FIELD_ORDER: Field[] = ['email', 'nickname', 'password', 'passwordConfirm']
+/** 서버(Supabase) 기본 규칙과 같게 */
+const MIN_PASSWORD_LENGTH = 6
 
 /** 중복 확인 결과 — 확인한 값과 함께 기억해서, 값을 고치면 다시 확인하게 함 */
 type Check = { value: string; ok: boolean } | null
 
-function SignupForm({ onCancel, onDone }: { onCancel: () => void; onDone: (id: string) => void }) {
+function SignupForm({ onCancel, onDone }: { onCancel: () => void; onDone: (email: string) => void }) {
   const [values, setValues] = useState<Record<Field, string>>({
-    id: '',
+    email: '',
     nickname: '',
     password: '',
     passwordConfirm: '',
-    email: '',
   })
   const [agreed, setAgreed] = useState(false)
-  const [idCheck, setIdCheck] = useState<Check>(null)
+  const [busy, setBusy] = useState(false)
   const [nicknameCheck, setNicknameCheck] = useState<Check>(null)
   const [errors, setErrors] = useState<Partial<Record<Field | 'agree', string>>>({})
   const [summary, setSummary] = useState<string | null>(null)
@@ -160,28 +172,16 @@ function SignupForm({ onCancel, onDone }: { onCancel: () => void; onDone: (id: s
     setErrors((e) => ({ ...e, [field]: undefined }))
   }
 
-  const idChecked = idCheck?.ok && idCheck.value === values.id.trim()
   const nicknameChecked = nicknameCheck?.ok && nicknameCheck.value === values.nickname.trim()
 
-  function checkId() {
-    const value = values.id.trim()
-    if (!value) {
-      setErrors((e) => ({ ...e, id: t('ID를 입력한 뒤 중복 확인을 눌러 주세요.') }))
-      refs.current.id?.focus()
-      return
-    }
-    setIdCheck({ value, ok: !isIdTaken(value) })
-    setErrors((e) => ({ ...e, id: undefined }))
-  }
-
-  function checkNickname() {
+  async function checkNickname() {
     const value = values.nickname.trim()
     if (!value) {
       setErrors((e) => ({ ...e, nickname: t('닉네임을 입력한 뒤 중복 확인을 눌러 주세요.') }))
       refs.current.nickname?.focus()
       return
     }
-    setNicknameCheck({ value, ok: !isNicknameTaken(value) })
+    setNicknameCheck({ value, ok: !(await isNicknameTaken(value)) })
     setErrors((e) => ({ ...e, nickname: undefined }))
   }
 
@@ -200,12 +200,12 @@ function SignupForm({ onCancel, onDone }: { onCancel: () => void; onDone: (id: s
     }
 
     // 2) 내용 확인
-    if (!idChecked) next.id = idCheck?.value === values.id.trim() ? t('이미 사용 중인 ID입니다.') : t('ID 중복 확인을 해 주세요.')
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) next.email = t('올바른 E-mail 주소를 입력해 주세요.')
     if (!nicknameChecked)
       next.nickname =
         nicknameCheck?.value === values.nickname.trim() ? t('이미 사용 중인 닉네임입니다.') : t('닉네임 중복 확인을 해 주세요.')
+    if (values.password.length < MIN_PASSWORD_LENGTH) next.password = t('PW는 6자 이상으로 입력해 주세요.')
     if (values.password !== values.passwordConfirm) next.passwordConfirm = t('PW가 일치하지 않습니다.')
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) next.email = t('올바른 E-mail 주소를 입력해 주세요.')
     if (!agreed) next.agree = t('약관에 동의(체크)해야 회원가입이 가능합니다.')
 
     const first = ([...FIELD_ORDER, 'agree'] as const).find((f) => next[f])
@@ -216,12 +216,14 @@ function SignupForm({ onCancel, onDone }: { onCancel: () => void; onDone: (id: s
       return
     }
 
-    const failure = await signUp({ id: values.id, nickname: values.nickname, email: values.email, password: values.password })
+    setBusy(true)
+    const failure = await signUp({ email: values.email, nickname: values.nickname, password: values.password })
+    setBusy(false)
     if (failure) {
       setSummary(failure)
       return
     }
-    onDone(values.id.trim())
+    onDone(values.email.trim())
   }
 
   function input(field: Field, props: { type?: string; autoComplete?: string; placeholder?: string }) {
@@ -240,7 +242,7 @@ function SignupForm({ onCancel, onDone }: { onCancel: () => void; onDone: (id: s
     )
   }
 
-  function feedback(field: 'id' | 'nickname', checked: boolean | undefined, check: Check, value: string) {
+  function feedback(field: 'nickname', checked: boolean | undefined, check: Check, value: string) {
     if (errors[field]) return <p className="field-error">{errors[field]}</p>
     if (check && check.value === value.trim())
       return checked ? (
@@ -257,14 +259,13 @@ function SignupForm({ onCancel, onDone }: { onCancel: () => void; onDone: (id: s
       {summary && <p className="notice error-notice">{summary}</p>}
       <form className="signup-form" onSubmit={submit} noValidate>
         <div className="signup-field">
-          <label htmlFor="signup-id">ID</label>
-          <div className="with-button">
-            {input('id', { autoComplete: 'username', placeholder: 'ID' })}
-            <button type="button" className="btn small" onClick={checkId}>
-              {t('중복 확인')}
-            </button>
-          </div>
-          {feedback('id', idChecked, idCheck, values.id)}
+          <label htmlFor="signup-email">E-mail</label>
+          {input('email', { type: 'email', autoComplete: 'email', placeholder: 'example@email.com' })}
+          {errors.email ? (
+            <p className="field-error">{errors.email}</p>
+          ) : (
+            <p className="hint">{t('로그인할 때 이 E-mail을 씁니다.')}</p>
+          )}
         </div>
 
         <div className="signup-field">
@@ -280,7 +281,7 @@ function SignupForm({ onCancel, onDone }: { onCancel: () => void; onDone: (id: s
 
         <div className="signup-field">
           <label htmlFor="signup-password">PW</label>
-          {input('password', { type: 'password', autoComplete: 'new-password', placeholder: 'PW' })}
+          {input('password', { type: 'password', autoComplete: 'new-password', placeholder: t('PW (6자 이상)') })}
           {errors.password && <p className="field-error">{errors.password}</p>}
         </div>
 
@@ -288,12 +289,6 @@ function SignupForm({ onCancel, onDone }: { onCancel: () => void; onDone: (id: s
           <label htmlFor="signup-passwordConfirm">{t('PW 확인')}</label>
           {input('passwordConfirm', { type: 'password', autoComplete: 'new-password', placeholder: t('PW 다시 입력') })}
           {errors.passwordConfirm && <p className="field-error">{errors.passwordConfirm}</p>}
-        </div>
-
-        <div className="signup-field">
-          <label htmlFor="signup-email">E-mail</label>
-          {input('email', { type: 'email', autoComplete: 'email', placeholder: 'example@email.com' })}
-          {errors.email && <p className="field-error">{errors.email}</p>}
         </div>
 
         <div className={`signup-agree ${errors.agree ? 'invalid' : ''}`}>
@@ -320,7 +315,7 @@ function SignupForm({ onCancel, onDone }: { onCancel: () => void; onDone: (id: s
           <button type="button" className="btn" onClick={onCancel}>
             {t('로그인으로 돌아가기')}
           </button>
-          <button type="submit" className="btn primary">
+          <button type="submit" className="btn primary" disabled={busy}>
             {t('회원가입')}
           </button>
         </div>
@@ -356,7 +351,7 @@ function shrinkImage(file: File): Promise<string> {
 
 type Message = { ok: boolean; text: string } | null
 
-const SAVE_FAILED = '저장하지 못했습니다. 저장 공간이나 사생활 보호 설정을 확인해 주세요.'
+const SAVE_FAILED = '저장하지 못했습니다. 잠시 후 다시 시도해 주세요.'
 
 /** 로그아웃은 헤더의 닉네임 메뉴에서 */
 function AccountInfo({ user, onUserChange }: { user: SessionUser; onUserChange: (user: SessionUser) => void }) {
@@ -390,7 +385,7 @@ function NicknameEditor({
   const unchanged = value === user.nickname
   const checked = check?.ok && check.value === value
 
-  function checkDuplicate() {
+  async function checkDuplicate() {
     if (!value) {
       setMessage({ ok: false, text: t('닉네임을 입력해 주세요.') })
       inputRef.current?.focus()
@@ -400,12 +395,12 @@ function NicknameEditor({
       setMessage({ ok: false, text: t('지금 쓰고 있는 닉네임과 같습니다.') })
       return
     }
-    const ok = !isNicknameTaken(value, user.id)
+    const ok = !(await isNicknameTaken(value, user.id))
     setCheck({ value, ok })
     setMessage(ok ? { ok: true, text: t('사용할 수 있는 닉네임입니다.') } : { ok: false, text: t('이미 사용 중인 닉네임입니다.') })
   }
 
-  function confirm() {
+  async function confirm() {
     if (!value) {
       setMessage({ ok: false, text: t('닉네임을 입력해 주세요.') })
       inputRef.current?.focus()
@@ -423,7 +418,7 @@ function NicknameEditor({
       })
       return
     }
-    const next = updateNickname(user, value)
+    const next = await updateNickname(user, value)
     if (!next) {
       setMessage({ ok: false, text: t(SAVE_FAILED) })
       return
@@ -476,7 +471,7 @@ function NicknameEditor({
             </button>
           </div>
         )}
-        <div className="hint">ID: {user.id}</div>
+        <div className="hint">E-mail: {user.email}</div>
         {message && <p className={message.ok ? 'field-ok' : 'field-error'}>{message.text}</p>}
         {draft !== null && (
           <div className="confirm-row">
@@ -523,9 +518,9 @@ function IconEditor({
     }
   }
 
-  function confirm() {
+  async function confirm() {
     if (!pending) return
-    const next = updateIcon(user, pending)
+    const next = await updateIcon(user, pending)
     if (!next) {
       setMessage({ ok: false, text: t(SAVE_FAILED) })
       return

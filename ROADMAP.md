@@ -37,3 +37,22 @@
   - [x] 6-3b. TMAP 키 연결 확인 (한국 도보 실제 경로)
   - [ ] 6-3c. (선택) ODsay 키 — 한국 대중교통 요금·환승
   - [ ] 6-4. 실제 서비스용 중계 서버(키 숨기기)
+- [x] 7. 프론트엔드 정리 (화면·디자인·기능 다듬기) — Wanderlog·Airbnb 참고 UI 적용 (목록·지도 연동, 사진, 하단 시트·탭바 등)
+  - [x] 7-1. 데이터 모양(여행·게시글·사용자, types.ts) 최대한 확정 — 여행 주인(ownerId), 커뮤니티 타입 정리, DB 설계안: docs/DATA_MODEL.md
+  - [x] 7-2. localStorage 접근은 lib/ 저장 파일 안에만 (나중에 속만 Supabase로 교체) — 좋아요·댓글도 저장
+  - [x] 7-3. 모바일 화면 점검 (375px: 모든 화면 가로 넘침 없음, 초점 표시 색 정리)
+- [ ] 8. Supabase 연동 (데이터 모양이 거의 확정됐을 때, 무료 플랜)
+  - [x] 8-1. 프로젝트 만들기 + 테이블 설계 (사용자, 여행, 게시글, 찜) — supabase/schema.sql 적용, 키 연결·권한(RLS) 동작 확인
+  - [x] 8-2. 로그인을 Supabase Auth로 교체 — 이메일 + 비밀번호 로그인 (비밀번호는 서버만 앎), 실제 가입·로그인 확인
+  - [ ] 8-3. 저장한 여행·커뮤니티 글·찜을 DB로 옮기기 → 사용자끼리 공유 — 여행·글·좋아요·댓글·찜 서버 저장 코드 완료, 실제 저장 확인 남음
+  - [x] 8-4. 사진을 Supabase Storage로 옮기기 — 글 사진(post-photos)·프로필 사진(avatars), 올리기·보기·지우기·남의 폴더 차단 확인
+  - [ ] 8-5. 권한(RLS): 남의 글·여행은 고치거나 지우지 못하게 — schema.sql에 적용, 확인: 로그인 없이 쓰기 차단·남의 사진 폴더 업로드 차단 (남은 일: 두 계정으로 서로의 글 삭제 시도)
+- [ ] 9. API 키 보호 (6-4) — 링크 공유 전에 필수
+  - [x] 9-1. Google Cloud 콘솔에서 키를 Vercel 도메인으로만 제한 — 배포 주소·localhost만 허용, 다른 사이트·주소 없는 요청 차단 확인 (Places·Routes)
+  - [ ] 9-2. Supabase Edge Functions로 중계 서버 만들어 키 숨기기 — route-proxy 배포·TMAP 길찾기·허용 주소 외 차단 확인, 남은 일: Vercel에서 VITE_TMAP_APP_KEY 삭제 후 Redeploy
+- [ ] 10. PWA 적용 (마지막에 — 개발 중 캐시 혼란 방지)
+  - [ ] 10-1. 아이콘(192·512·maskable·apple-touch-icon), vite-plugin-pwa, manifest(PLAN:J, #F86A07, standalone)
+  - [ ] 10-2. autoUpdate로 push할 때마다 자동 업데이트, config.js는 캐시에서 빼기
+  - [ ] 10-3. Vercel 배포 후 폰에서 설치 확인 (Chrome 개발자도구 Application·Lighthouse)
+- [ ] 11. 지인 테스트: 링크 + 설치 방법 공유 (안드로이드 "앱 설치", iPhone Safari 공유 → 홈 화면에 추가) → 피드백 반영
+  - 화면만 먼저 보여주고 싶으면 7 도중에 10만 먼저 해도 됨 (이때 9-1은 꼭 먼저, 로그인·커뮤니티는 "내 폰에만 저장"이라고 안내)

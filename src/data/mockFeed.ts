@@ -1,27 +1,11 @@
 import { getLang, t, type Lang } from '../i18n'
 import { buildSchedule } from '../lib/schedule'
 import { toHHMM } from '../lib/time'
-import type { NearbyPlace, Place, SavedDay, SavedTrip } from '../types'
+import type { FeedAuthor, FeedPost, NearbyPlace, Place, SavedDay, SavedTrip } from '../types'
 import { findCountry, placesOf } from './catalog'
 
 // 커뮤니티 화면을 서버 없이 먼저 보기 위한 가짜 게시물.
 // 서버(Supabase)를 붙이면 이 파일 대신 서버에서 게시물을 받아 온다.
-
-export type FeedAuthor = { nickname: string; icon: string }
-/** authorId: 직접 단 댓글만 있음 (내 댓글에 삭제 메뉴를 보여 줄 때 사용) */
-export type FeedComment = { id: string; authorId?: string; author: FeedAuthor; text: string; postedAt: string }
-export type FeedPost = {
-  id: string
-  author: FeedAuthor
-  trip: SavedTrip
-  caption: string
-  tags: string[]
-  /** 글쓴이가 함께 올린 사진 (data URL 또는 주소) */
-  photos?: string[]
-  likeCount: number
-  comments: FeedComment[]
-  postedAt: string
-}
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString()
 
@@ -80,7 +64,7 @@ function trip(id: string, name: string, countryCode: string, days: SavedDay[]): 
   return { id, name, countryCode, createdAt: at, updatedAt: at, days }
 }
 
-const users = {
+const users: Record<string, FeedAuthor> = {
   mina: { nickname: '미나의여행일지', icon: '🌸' },
   jun: { nickname: '준이네', icon: '🐻' },
   soo: { nickname: '수빈', icon: '🧳' },

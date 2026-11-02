@@ -11,18 +11,22 @@ GOOGLE_MAPS_API_KEY="${GOOGLE_MAPS_API_KEY:-${VITE_GOOGLE_MAPS_API_KEY:-}}"
 GOOGLE_MAP_ID="${GOOGLE_MAP_ID:-${VITE_GOOGLE_MAP_ID:-}}"
 TMAP_APP_KEY="${TMAP_APP_KEY:-${VITE_TMAP_APP_KEY:-}}"
 ODSAY_API_KEY="${ODSAY_API_KEY:-${VITE_ODSAY_API_KEY:-}}"
+SUPABASE_URL="${SUPABASE_URL:-${VITE_SUPABASE_URL:-}}"
+SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-${VITE_SUPABASE_ANON_KEY:-}}"
 
 cat > /usr/share/nginx/html/config.js <<EOF
 window.__APP_CONFIG__ = {
   GOOGLE_MAPS_API_KEY: "$(esc "$GOOGLE_MAPS_API_KEY")",
   GOOGLE_MAP_ID: "$(esc "$GOOGLE_MAP_ID")",
   TMAP_APP_KEY: "$(esc "$TMAP_APP_KEY")",
-  ODSAY_API_KEY: "$(esc "$ODSAY_API_KEY")"
+  ODSAY_API_KEY: "$(esc "$ODSAY_API_KEY")",
+  SUPABASE_URL: "$(esc "$SUPABASE_URL")",
+  SUPABASE_ANON_KEY: "$(esc "$SUPABASE_ANON_KEY")"
 }
 EOF
 
 # 어떤 키가 설정됐는지만 로그에 남김 (값은 출력하지 않음)
-for name in GOOGLE_MAPS_API_KEY TMAP_APP_KEY ODSAY_API_KEY; do
+for name in GOOGLE_MAPS_API_KEY TMAP_APP_KEY ODSAY_API_KEY SUPABASE_URL SUPABASE_ANON_KEY; do
   eval "value=\${$name}"
   if [ -n "$value" ]; then echo "config.js: $name 설정됨"; else echo "config.js: $name 없음"; fi
 done
