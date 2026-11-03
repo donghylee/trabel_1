@@ -36,7 +36,7 @@ export default function TimeStep({ startTime, endTime, totalStayMinutes, onChang
               <dd>{formatDuration(available)}</dd>
             </div>
             <div>
-              <dt>{t('머무를 시간 합계')}</dt>
+              <dt>{t('보낼 시간 합계')}</dt>
               <dd>{formatDuration(totalStayMinutes)}</dd>
             </div>
             <div>

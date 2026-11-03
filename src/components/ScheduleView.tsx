@@ -659,7 +659,7 @@ export default function ScheduleView({
                     {editor && (
                       <select
                         className="stay-inline"
-                        aria-label={t('{name} 머무를 시간', { name: item.place.name })}
+                        aria-label={t('{name} 보낼 시간', { name: item.place.name })}
                         value={stayMinutes}
                         onChange={(e) => editor.onChangeStay(id, Number(e.target.value))}
                       >

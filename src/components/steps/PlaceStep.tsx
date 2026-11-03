@@ -95,15 +95,6 @@ export default function PlaceStep({ country, customPlaces, selections, orderFixe
     onOrderChange(order.flatMap((id) => byId.get(id) ?? []), true)
   }
 
-  function move(placeId: string, direction: -1 | 1) {
-    const order = selections.map((s) => s.placeId)
-    const i = order.indexOf(placeId)
-    const j = i + direction
-    if (j < 0 || j >= order.length) return
-    ;[order[i], order[j]] = [order[j], order[i]]
-    reorder(order)
-  }
-
   const selectedIds = selectedPlaces.map((s) => s.place.id)
   const { drag, rowProps } = useDragReorder(selectedIds, reorder)
   // 끄는 중: 놓일 자리에 파란 선
@@ -176,11 +167,7 @@ export default function PlaceStep({ country, customPlaces, selections, orderFixe
                   </button>
                 </>
               ) : (
-                <>
-                  {t('끌어서 옮기거나 ▲▼로 순서를 바꿀 수 있습니다.')}
-                  <br />
-                  {t('바꾸지 않으면 앱이 가장 효율적인 순서로 정합니다.')}
-                </>
+                t('앱이 가장 효율적인 순서로 정리합니다.')
               )}
             </p>
             <ul className="place-options">
@@ -197,24 +184,6 @@ export default function PlaceStep({ country, customPlaces, selections, orderFixe
                     .join(' ')}
                   {...rowProps(place.id)}
                 >
-                  <div className="reorder">
-                    <button
-                      type="button"
-                      aria-label={t('{name} 위로', { name: place.name })}
-                      disabled={index === 0}
-                      onClick={() => move(place.id, -1)}
-                    >
-                      ▲
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={t('{name} 아래로', { name: place.name })}
-                      disabled={index === selectedPlaces.length - 1}
-                      onClick={() => move(place.id, 1)}
-                    >
-                      ▼
-                    </button>
-                  </div>
                   {/* 순서를 직접 정했을 때만 번호 (앱이 정할 때는 표시 없음) */}
                   {orderFixed && <span className="order-badge">{index + 1}</span>}
                   <div className="place-option-main with-tag">
@@ -222,7 +191,7 @@ export default function PlaceStep({ country, customPlaces, selections, orderFixe
                     <span className="tag">{categoryLabel(place.category)}</span>
                   </div>
                   <label className="stay-select">
-                    {t('머무를 시간')}
+                    {t('보낼 시간')}
                     <select value={stayMinutes} onChange={(e) => setStay(place.id, Number(e.target.value))}>
                       {STAY_OPTIONS.map((m) => (
                         <option key={m} value={m}>
@@ -245,7 +214,7 @@ export default function PlaceStep({ country, customPlaces, selections, orderFixe
           </>
         )}
         {selections.length > 0 && (
-          <p className="hint stay-total">{t('머무를 시간 합계 {d}', { d: formatDuration(totalStay) })}</p>
+          <p className="hint stay-total">{t('보낼 시간 합계 {d}', { d: formatDuration(totalStay) })}</p>
         )}
       </div>
 
