@@ -679,6 +679,11 @@ export default function App() {
                 onChangeStay: changeStay,
                 onRemovePlace: removePlace,
                 onChangeTimes: changeTimes,
+                pace: { mealMinutes: input.mealMinutes, moveBufferMinutes: input.moveBufferMinutes },
+                onChangePace: (patch) => {
+                  setInput({ ...input, ...patch })
+                  setJustSaved(false)
+                },
                 onResetOrder: () => {
                   setCustomOrder(null)
                   setJustSaved(false)

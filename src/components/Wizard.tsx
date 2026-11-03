@@ -107,6 +107,14 @@ export default function Wizard({ input, startAt = 'country', onChange, onComplet
             startTime={input.startTime}
             endTime={input.endTime}
             totalStayMinutes={totalStay}
+            moveCount={
+              input.selections.length === 0
+                ? 0
+                : input.selections.length -
+                  1 +
+                  (input.lodging && input.startFromLodging ? 1 : 0) +
+                  (input.lodging && input.returnToLodging ? 1 : 0)
+            }
             mealMinutes={input.mealMinutes}
             moveBufferMinutes={input.moveBufferMinutes}
             onChange={(patch) => onChange({ ...input, ...patch })}

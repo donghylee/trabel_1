@@ -31,6 +31,13 @@ const mealWindows: { meal: MealKind; start: number; end: number }[] = [
 
 export const mealLabels: Record<MealKind, string> = { lunch: '점심', dinner: '저녁' }
 
+/** 활동 시간에 걸치는 점심·저녁 수 (시간 단계 합계용 — 일정이 길어져 저녁이 더해지는 경우는 빼고 셈) */
+export function mealsBetween(startTime: string, endTime: string): number {
+  const start = toMinutes(startTime)
+  const end = toMinutes(endTime)
+  return mealWindows.filter((w) => Math.min(end, w.end) - Math.max(start, w.start) >= MEAL_MIN_OVERLAP).length
+}
+
 function stopsOf(input: TripInput, places: Place[]): Stop[] {
   return input.selections.flatMap((s) => {
     const place = places.find((p) => p.id === s.placeId)

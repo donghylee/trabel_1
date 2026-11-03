@@ -7,6 +7,7 @@ import { nearbyKindIcons, rankNearby } from '../lib/recommend'
 import { mealLabels } from '../lib/schedule'
 import { STAY_OPTIONS, formatDuration, toHHMM, toMinutes } from '../lib/time'
 import { formatDistance, formatFare, modeIcons, modeLabels, pathStyles, recommendedOption } from '../lib/travel'
+import { PaceFields } from './steps/TimeStep'
 import type {
   Adjustment,
   Country,
@@ -54,6 +55,9 @@ export type ScheduleEditor = {
   onChangeStay: (placeId: string, minutes: number) => void
   onRemovePlace: (placeId: string) => void
   onChangeTimes: (startTime: string, endTime: string) => void
+  /** 식사 시간(한 끼)·이동 시간(구간마다) — 지금 값과 바꾸기 */
+  pace: { mealMinutes?: number; moveBufferMinutes?: number }
+  onChangePace: (patch: { mealMinutes?: number; moveBufferMinutes?: number }) => void
   onResetOrder: () => void
   onApply: (adjustment: Adjustment) => void
   onAddPlace: (rec: Recommendation) => void
@@ -460,6 +464,14 @@ export default function ScheduleView({
               startTime={toHHMM(schedule.startAt)}
               endTime={toHHMM(schedule.limitAt)}
               onChange={editor.onChangeTimes}
+            />
+          )}
+          {editor && (
+            <PaceFields
+              className="pace-edit"
+              mealMinutes={editor.pace.mealMinutes}
+              moveBufferMinutes={editor.pace.moveBufferMinutes}
+              onChange={editor.onChangePace}
             />
           )}
 

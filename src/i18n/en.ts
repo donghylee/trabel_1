@@ -436,8 +436,9 @@ export const en: Record<string, string> = {
   '🗺️ 여행 일정': '🗺️ Trip plan',
   '📷 사진': '📷 Photo',
   '식사 시간 (한 끼)': 'Meal time (each)',
-  '이동 여유 (구간마다)': 'Travel buffer (per trip)',
+  '이동 시간 (구간마다)': 'Extra travel time (per trip)',
+  '식사 {n}끼': 'Meals ({n})',
+  '이동 시간 {n}구간 추가': 'Extra travel time ({n} trips)',
   '없음': 'None',
-  '점심·저녁 시간대에 식사가 들어가고, 이동 시간에는 구간마다 여유 시간이 더해져 일정에 함께 계산돼요.': 'Meals are placed at lunch and dinner time, and the buffer is added to every trip in your schedule.',
   '여유 +{d}': 'buffer +{d}',
 }

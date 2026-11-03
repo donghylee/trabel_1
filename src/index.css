@@ -157,12 +157,15 @@ button, input, select { font: inherit; color: inherit; }
 .time-inputs { flex-wrap: nowrap; }
 .time-inputs label { flex: 1; min-width: 0; }
 .time-inputs input, .time-inputs select { width: 100%; min-width: 0; }
+/* 결과 화면 [활동 시간] 아래: 식사 시간·이동 시간 나란히 */
+.pace-edit { display: flex; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--bg); }
+.pace-edit label { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.pace-edit select { width: 100%; padding: 7px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); font-size: 14px; color: var(--text); }
 @media (max-width: 400px) {
   .time-inputs input[type='time'] { padding-left: 8px; padding-right: 6px; font-size: 15px; }
   .time-inputs { gap: 8px; }
 }
 .time-inputs input, .time-inputs select { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; background: var(--panel); }
-.time-sep { padding-bottom: 10px; color: var(--muted); }
 .time-summary { margin: 0; display: flex; flex-direction: column; gap: 8px; }
 .time-summary div { display: flex; justify-content: space-between; font-size: 14px; }
 .time-summary dt { color: var(--muted); }
