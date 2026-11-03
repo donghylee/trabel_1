@@ -460,19 +460,19 @@ export default function ScheduleView({
           </dl>
 
           {editor && (
-            <TimeRangeEditor
-              startTime={toHHMM(schedule.startAt)}
-              endTime={toHHMM(schedule.limitAt)}
-              onChange={editor.onChangeTimes}
-            />
-          )}
-          {editor && (
-            <PaceFields
-              className="pace-edit"
-              mealMinutes={editor.pace.mealMinutes}
-              moveBufferMinutes={editor.pace.moveBufferMinutes}
-              onChange={editor.onChangePace}
-            />
+            <div className="time-box">
+              <TimeRangeEditor
+                startTime={toHHMM(schedule.startAt)}
+                endTime={toHHMM(schedule.limitAt)}
+                onChange={editor.onChangeTimes}
+              />
+              <PaceFields
+                className="pace-edit"
+                mealMinutes={editor.pace.mealMinutes}
+                moveBufferMinutes={editor.pace.moveBufferMinutes}
+                onChange={editor.onChangePace}
+              />
+            </div>
           )}
 
           {schedule.overMinutes > 0 && (

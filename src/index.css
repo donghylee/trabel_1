@@ -158,9 +158,18 @@ button, input, select { font: inherit; color: inherit; }
 .time-inputs label { flex: 1; min-width: 0; }
 .time-inputs input, .time-inputs select { width: 100%; min-width: 0; }
 /* 결과 화면 [활동 시간] 아래: 식사 시간·이동 시간 나란히 */
-.pace-edit { display: flex; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--bg); }
-.pace-edit label { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
-.pace-edit select { width: 100%; padding: 7px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); font-size: 14px; color: var(--text); }
+/* 활동 시간·식사·이동을 한 회색 상자에 */
+.time-box { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 10px; background: var(--bg); }
+.time-box .time-edit { padding: 0; background: none; }
+.pace-edit { display: flex; gap: 12px; }
+.pace-edit label { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.pace-edit select { flex: 1; min-width: 0; padding: 6px 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); font-size: 14px; color: var(--text); }
+@media (max-width: 420px) {
+  /* 좁은 폰: 두 칸은 나란히 두고, 칸 안에서 이름을 시간 위로 */
+  .pace-edit label { flex-direction: column; align-items: stretch; gap: 4px; font-size: 12px; }
+  .time-box .time-edit { flex-wrap: nowrap; }
+  .time-box .time-edit input { flex: 1; min-width: 0; padding: 6px 4px; }
+}
 @media (max-width: 400px) {
   .time-inputs input[type='time'] { padding-left: 8px; padding-right: 6px; font-size: 15px; }
   .time-inputs { gap: 8px; }
