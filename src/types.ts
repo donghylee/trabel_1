@@ -61,6 +61,10 @@ export type TripInput = {
   /** "HH:MM" */
   startTime: string
   endTime: string
+  /** 식사 한 끼에 쓰는 시간(분). 없으면 60 */
+  mealMinutes?: number
+  /** 이동 구간마다 더하는 여유 시간(분). 없으면 0 */
+  moveBufferMinutes?: number
   /** 장소 단계에서 순서를 직접 바꿨으면 true — selections 순서대로 방문 (없거나 false면 앱이 최적 순서로) */
   orderFixed?: boolean
 }

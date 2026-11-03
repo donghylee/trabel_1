@@ -153,7 +153,15 @@ button, input, select { font: inherit; color: inherit; }
 .time-step { display: flex; flex-direction: column; gap: 18px; }
 .time-inputs { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
 .time-inputs label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
-.time-inputs input { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; }
+/* 한 줄에 두 칸씩 (출발~종료 / 식사 시간·이동 여유) — 좁은 폰에서도 줄이 꺾이지 않게 */
+.time-inputs { flex-wrap: nowrap; }
+.time-inputs label { flex: 1; min-width: 0; }
+.time-inputs input, .time-inputs select { width: 100%; min-width: 0; }
+@media (max-width: 400px) {
+  .time-inputs input[type='time'] { padding-left: 8px; padding-right: 6px; font-size: 15px; }
+  .time-inputs { gap: 8px; }
+}
+.time-inputs input, .time-inputs select { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; background: var(--panel); }
 .time-sep { padding-bottom: 10px; color: var(--muted); }
 .time-summary { margin: 0; display: flex; flex-direction: column; gap: 8px; }
 .time-summary div { display: flex; justify-content: space-between; font-size: 14px; }

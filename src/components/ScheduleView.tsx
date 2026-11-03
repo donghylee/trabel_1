@@ -84,7 +84,8 @@ function optionText(option: TravelOption, country: Country, showSource: boolean)
 }
 
 /** 이동 구간 — 평소엔 "🚇 15분 · 1.2km" 한 줄, 누르면 요금·추천·다른 수단까지 */
-function MoveRow({ leg, country, showSource }: { leg: Leg; country: Country; showSource: boolean }) {
+/** buffer: 시간 단계에서 정한 이동 여유 (시간표에는 이동 시간에 더해져 있음) */
+function MoveRow({ leg, country, showSource, buffer }: { leg: Leg; country: Country; showSource: boolean; buffer: number }) {
   const [open, setOpen] = useState(false)
   const best = leg.options.find((o) => o.mode === leg.recommended)!
   const others = leg.options.filter((o) => o.mode !== leg.recommended)
@@ -94,6 +95,7 @@ function MoveRow({ leg, country, showSource }: { leg: Leg; country: Country; sho
         <span className="move-icon">{modeIcons[best.mode]}</span>
         <span>
           {formatDuration(best.minutes)} · {formatDistance(best.meters)}
+          {buffer > 0 && <span className="move-buffer"> · {t('여유 +{d}', { d: formatDuration(buffer) })}</span>}
         </span>
         <span className="move-caret" aria-hidden="true">
           {open ? '▴' : '▾'}
@@ -508,7 +510,12 @@ export default function ScheduleView({
                     className="timeline-move"
                     style={{ borderLeftColor: pathStyles[item.leg.recommended].color }}
                   >
-                    <MoveRow leg={item.leg} country={country} showSource={!!routeStatus?.enabled} />
+                    <MoveRow
+                      leg={item.leg}
+                      country={country}
+                      showSource={!!routeStatus?.enabled}
+                      buffer={item.end - item.start - recommendedOption(item.leg).minutes}
+                    />
                   </li>
                 )
               }

@@ -15,7 +15,8 @@ import { estimateLeg, recommendedOption, walkMetersOf } from './travel'
 
 type Stop = { place: Place; stayMinutes: number }
 
-const MEAL_MINUTES = 60
+/** 식사 한 끼 기본 시간 (시간 단계에서 바꿀 수 있음 — input.mealMinutes) */
+export const MEAL_MINUTES = 60
 /** 식사 시간대 앞뒤로 이만큼까지는 식사를 넣어도 됨 */
 const MEAL_SLACK = 30
 /** 활동 시간이 식사 시간대와 이만큼 이상 겹쳐야 식사를 넣음 */
@@ -140,7 +141,7 @@ export function buildSchedule(
       name: chosen.name,
       category: 'food',
       location: chosen.location,
-      defaultStayMinutes: MEAL_MINUTES,
+      defaultStayMinutes: input.mealMinutes ?? MEAL_MINUTES,
     }
     return [{ meal, slot, near, restaurant }]
   })
@@ -178,6 +179,8 @@ function layoutDay(
 
   const startAt = toMinutes(input.startTime)
   const limitAt = toMinutes(input.endTime)
+  const mealMinutes = input.mealMinutes ?? MEAL_MINUTES
+  const moveBuffer = input.moveBufferMinutes ?? 0
   const meals = mealWindows.filter(
     (w) => Math.min(limitAt, w.end) - Math.max(startAt, w.start) >= MEAL_MIN_OVERLAP,
   )
@@ -191,8 +194,8 @@ function layoutDay(
   function tryMeal(near: Place) {
     for (const w of meals) {
       if (!eaten.has(w.meal) && t >= w.start - MEAL_SLACK && t <= w.end + MEAL_SLACK) {
-        items.push({ kind: 'meal', meal: w.meal, near, start: t, end: t + MEAL_MINUTES, slot: visitsDone })
-        t += MEAL_MINUTES
+        items.push({ kind: 'meal', meal: w.meal, near, start: t, end: t + mealMinutes, slot: visitsDone })
+        t += mealMinutes
         eaten.add(w.meal)
       }
     }
@@ -209,18 +212,19 @@ function layoutDay(
           meal: f.meal,
           near: f.near,
           start: t,
-          end: t + MEAL_MINUTES,
+          end: t + mealMinutes,
           slot,
           restaurant: f.restaurant,
         })
-        t += MEAL_MINUTES
+        t += mealMinutes
         prevId = f.restaurant.id
       })
   }
 
   function move(fromId: string, toId: string) {
     const leg = legs.get(`${fromId}>${toId}`)!
-    const minutes = recommendedOption(leg).minutes
+    // 이동 여유는 구간마다 똑같이 더해서 방문 순서에는 영향이 없음
+    const minutes = recommendedOption(leg).minutes + moveBuffer
     items.push({ kind: 'move', leg, start: t, end: t + minutes })
     t += minutes
   }
