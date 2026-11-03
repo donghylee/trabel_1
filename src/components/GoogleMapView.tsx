@@ -63,9 +63,12 @@ export default function GoogleMapView({
         map.addListener('click', (e: google.maps.MapMouseEvent | google.maps.IconMouseEvent) => {
           // Google 지도에 원래 있는 가게 아이콘을 눌렀을 때 기본 말풍선 대신 우리 동작
           if ('placeId' in e && e.placeId) e.stop()
+          // 말풍선에 닫기 버튼이 없으니 지도를 누르면 닫힘
+          infoRef.current?.close()
           if (e.latLng) onMapClickRef.current?.({ lat: e.latLng.lat(), lng: e.latLng.lng() })
         })
-        infoRef.current = new maps.InfoWindow()
+        // 큰 머리글(닫기 버튼) 없이 글자 크기에 맞춘 작은 말풍선
+        infoRef.current = new maps.InfoWindow({ headerDisabled: true })
         mapRef.current = map
         setReady(true)
       })
@@ -122,7 +125,7 @@ export default function GoogleMapView({
         zIndex,
         gmpClickable: true,
       })
-      const html = `<strong>${escapeHtml(m.title)}</strong><br>${escapeHtml(m.subtitle)}`
+      const html = `<div class="map-info"><strong>${escapeHtml(m.title)}</strong><span>${escapeHtml(m.subtitle)}</span></div>`
       marker.addEventListener('gmp-click', () => {
         infoRef.current?.setContent(html)
         infoRef.current?.open({ map, anchor: marker })

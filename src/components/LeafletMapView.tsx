@@ -78,7 +78,7 @@ export default function LeafletMapView({
         }),
         zIndexOffset: zIndex,
       })
-        .bindPopup(`<strong>${m.title}</strong><br>${m.subtitle}`)
+        .bindPopup(`<div class="map-info"><strong>${m.title}</strong><span>${m.subtitle}</span></div>`, { closeButton: false })
         .on('click', () => onMarkerClickRef.current(m.id))
         .addTo(layer)
       markerRefs.current.set(m.id, { marker, zIndex })

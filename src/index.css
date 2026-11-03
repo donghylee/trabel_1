@@ -281,6 +281,14 @@ button, input, select { font: inherit; color: inherit; }
 .map-legend span { display: flex; align-items: center; gap: 6px; }
 .legend-line { display: inline-block; width: 22px; border-top-width: 4px; }
 
+/* 지도 번호를 누르면 뜨는 말풍선 — 이름·시간 글자에 맞춘 작은 크기 */
+.map-info { display: flex; flex-direction: column; gap: 2px; font-size: 13px; line-height: 1.35; white-space: nowrap; }
+.map-info strong { font-size: 14px; font-weight: 700; color: var(--strong); }
+.map-info span { color: var(--muted); }
+.gm-style .gm-style-iw-c { padding: 8px 12px !important; border-radius: 10px; }
+.gm-style .gm-style-iw-d { overflow: visible !important; }
+.leaflet-popup-content { margin: 8px 12px; }
+
 /* 지도 번호 마커 (Leaflet divIcon) */
 .map-pin span {
   width: 32px; height: 32px;
