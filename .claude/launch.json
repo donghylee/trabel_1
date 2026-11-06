@@ -8,6 +8,12 @@
       "port": 5173
     },
     {
+      "name": "video",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--mode", "video", "--port", "5173", "--strictPort"],
+      "port": 5173
+    },
+    {
       "name": "preview",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "preview", "--", "--port", "4173", "--strictPort"],
