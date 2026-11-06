@@ -1,0 +1,5 @@
+# 메시지 푸시 알림 키 (git에 올라가지 않음). 사용법: docs/PUSH_SETUP.md
+# 공개 키 → Vercel 환경 변수 VITE_VAPID_PUBLIC_KEY, Supabase 비밀 값 VAPID_PUBLIC_KEY
+VAPID_PUBLIC_KEY=BNX3WT997buvG_HC-A3fZnCOslhsN5_BCXF27S9B8DHIlRZrD468qj0OZn7JFtem4uCvAUridDRdJXc2li7tRss
+# 비밀 키 → Supabase 비밀 값 VAPID_PRIVATE_KEY 에만 (다른 곳에 붙여 넣지 마세요)
+VAPID_PRIVATE_KEY=_WSfbvRufrWnvw6rOOSMsa6CS5R6WhZXrRu9nYveS38
