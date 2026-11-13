@@ -7,6 +7,7 @@ import {
   googleDirectionsUrl,
   googleMapsUrl,
   naverDirectionsUrl,
+  naverWebDirectionsUrl,
   openInNewWindow,
   openNaverDirections,
 } from '../lib/place'
@@ -100,8 +101,9 @@ function MoveRow({ leg, country, showSource, buffer }: { leg: Leg; country: Coun
   const [open, setOpen] = useState(false)
   const best = leg.options.find((o) => o.mode === leg.recommended)!
   const others = leg.options.filter((o) => o.mode !== leg.recommended)
-  // 한국은 Google 지도로 도보 길찾기가 안 돼서 휴대폰에서는 네이버 지도 앱으로 (PC에는 네이버 지도 앱이 없음)
-  const naver = country.code === 'KR' && (isIos() || /Android/.test(navigator.userAgent))
+  // 한국은 Google 지도로 도보 길찾기가 안 돼서 네이버 지도로 — 휴대폰은 앱 먼저, PC는 웹
+  const naver = country.code === 'KR'
+  const phone = isIos() || /Android/.test(navigator.userAgent)
   return (
     <div className="move-row">
       <div className="move-line">
@@ -117,10 +119,11 @@ function MoveRow({ leg, country, showSource, buffer }: { leg: Leg; country: Coun
         </button>
         <a
           className="move-nav"
-          href={naver ? naverDirectionsUrl(leg, best.mode) : googleDirectionsUrl(leg, best.mode)}
+          href={naver ? naverWebDirectionsUrl(leg, best.mode) : googleDirectionsUrl(leg, best.mode)}
+          data-app={naver && phone ? naverDirectionsUrl(leg, best.mode) : undefined}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={naver ? openNaverDirections : openInNewWindow}
+          onClick={naver && phone ? openNaverDirections : openInNewWindow}
         >
           {naver ? t('네이버 지도 길찾기') : t('Google 지도 길찾기')} ↗
         </a>

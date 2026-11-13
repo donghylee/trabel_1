@@ -66,19 +66,33 @@ export function naverDirectionsUrl(leg: Leg, mode: TravelMode): string {
   return `nmap://route/${naverModes[mode]}?${params}`
 }
 
+const naverWebModes: Record<TravelMode, string> = { walk: 'walk', transit: 'transit', taxi: 'car' }
+
+/** 네이버 지도 웹 좌표(EPSG:3857, 미터)로 바꿈 */
+function webMercator({ lat, lng }: LatLng): string {
+  const R = 6378137
+  const x = (lng * Math.PI * R) / 180
+  const y = R * Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360))
+  return `${x.toFixed(1)},${y.toFixed(1)}`
+}
+
+/** 같은 구간을 네이버 지도 웹에서 여는 주소 — PC, 그리고 휴대폰에 앱이 없을 때 */
+export function naverWebDirectionsUrl(leg: Leg, mode: TravelMode): string {
+  const point = (p: Place) => `${webMercator(p.location)},${encodeURIComponent(p.name)},,`
+  return `https://map.naver.com/p/directions/${point(leg.from)}/${point(leg.to)}/-/${naverWebModes[mode]}`
+}
+
 /**
- * 네이버 지도 앱으로 길찾기. 앱이 없으면(1.5초 뒤에도 화면이 그대로면) 앱 설치 화면을 연다.
- * shortcut: 앱이 떴는지는 화면이 가려졌는지로만 짐작함, 확인 창에서 취소해도 설치 화면이 열릴 수 있음
+ * 휴대폰: 네이버 지도 앱(data-app 주소)으로 길찾기. 앱이 없으면(1.5초 뒤에도 화면이 그대로면) 링크의 네이버 지도 웹으로.
+ * shortcut: 앱이 떴는지는 화면이 가려졌는지로만 짐작함, 확인 창에서 취소해도 웹이 열릴 수 있음
  */
 export function openNaverDirections(event: { preventDefault: () => void; currentTarget: HTMLAnchorElement }) {
   event.preventDefault()
-  window.location.href = event.currentTarget.href
+  const web = event.currentTarget.href
+  window.location.href = event.currentTarget.dataset.app!
   setTimeout(() => {
-    if (document.hidden) return
-    const store = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent)
-      ? 'https://apps.apple.com/app/id311867728'
-      : 'https://play.google.com/store/apps/details?id=com.nhn.android.nmap'
-    window.open(store, '_blank', 'noopener,noreferrer')
+    // 팝업은 누른 직후에만 열 수 있어서 지금 화면에서 이동
+    if (!document.hidden) window.location.href = web
   }, 1500)
 }
 
