@@ -1,4 +1,4 @@
-import type { LatLng, Place, PlaceCategory } from '../types'
+import type { LatLng, Leg, Place, PlaceCategory, TravelMode } from '../types'
 import { distanceMeters } from './travel'
 
 /** 이름이 같고 이 거리 안이면 같은 장소로 봄 */
@@ -35,6 +35,51 @@ export function openInNewWindow(event: { preventDefault: () => void; currentTarg
   const popup = window.open(url, '_blank', 'width=1200,height=850')
   if (popup) popup.opener = null
   else window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+const googleModes: Record<TravelMode, string> = { walk: 'walking', transit: 'transit', taxi: 'driving' }
+const naverModes: Record<TravelMode, string> = { walk: 'walk', transit: 'public', taxi: 'car' }
+
+/** 한 구간(A→B) 길 안내를 Google 지도에서 여는 주소 — 구간 하나라 경유지 개수 제한이 없음 */
+export function googleDirectionsUrl(leg: Leg, mode: TravelMode): string {
+  const params = new URLSearchParams({
+    api: '1',
+    origin: `${leg.from.location.lat},${leg.from.location.lng}`,
+    destination: `${leg.to.location.lat},${leg.to.location.lng}`,
+    travelmode: googleModes[mode],
+    dir_action: 'navigate',
+  })
+  return `https://www.google.com/maps/dir/?${params}`
+}
+
+/** 같은 구간을 네이버 지도 앱에서 여는 주소 (Google 지도는 한국에서 도보 길찾기가 안 됨) */
+export function naverDirectionsUrl(leg: Leg, mode: TravelMode): string {
+  const params = new URLSearchParams({
+    slat: String(leg.from.location.lat),
+    slng: String(leg.from.location.lng),
+    sname: leg.from.name,
+    dlat: String(leg.to.location.lat),
+    dlng: String(leg.to.location.lng),
+    dname: leg.to.name,
+    appname: window.location.origin,
+  })
+  return `nmap://route/${naverModes[mode]}?${params}`
+}
+
+/**
+ * 네이버 지도 앱으로 길찾기. 앱이 없으면(1.5초 뒤에도 화면이 그대로면) 앱 설치 화면을 연다.
+ * shortcut: 앱이 떴는지는 화면이 가려졌는지로만 짐작함, 확인 창에서 취소해도 설치 화면이 열릴 수 있음
+ */
+export function openNaverDirections(event: { preventDefault: () => void; currentTarget: HTMLAnchorElement }) {
+  event.preventDefault()
+  window.location.href = event.currentTarget.href
+  setTimeout(() => {
+    if (document.hidden) return
+    const store = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent)
+      ? 'https://apps.apple.com/app/id311867728'
+      : 'https://play.google.com/store/apps/details?id=com.nhn.android.nmap'
+    window.open(store, '_blank', 'noopener,noreferrer')
+  }, 1500)
 }
 
 /** 장소 종류별 기본 머무를 시간(분) */

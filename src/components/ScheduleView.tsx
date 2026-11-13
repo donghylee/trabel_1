@@ -2,7 +2,14 @@ import { useMemo, useRef, useState, type CSSProperties, type PointerEvent, type 
 import { useDragReorder } from '../hooks/useDragReorder'
 import { useNearby } from '../hooks/useNearby'
 import { t } from '../i18n'
-import { googleMapsUrl, openInNewWindow } from '../lib/place'
+import { isIos } from '../hooks/useInstallPrompt'
+import {
+  googleDirectionsUrl,
+  googleMapsUrl,
+  naverDirectionsUrl,
+  openInNewWindow,
+  openNaverDirections,
+} from '../lib/place'
 import { nearbyKindIcons, rankNearby } from '../lib/recommend'
 import { mealLabels } from '../lib/schedule'
 import { STAY_OPTIONS, formatDuration, toHHMM, toMinutes } from '../lib/time'
@@ -93,18 +100,31 @@ function MoveRow({ leg, country, showSource, buffer }: { leg: Leg; country: Coun
   const [open, setOpen] = useState(false)
   const best = leg.options.find((o) => o.mode === leg.recommended)!
   const others = leg.options.filter((o) => o.mode !== leg.recommended)
+  // 한국은 Google 지도로 도보 길찾기가 안 돼서 휴대폰에서는 네이버 지도 앱으로 (PC에는 네이버 지도 앱이 없음)
+  const naver = country.code === 'KR' && (isIos() || /Android/.test(navigator.userAgent))
   return (
     <div className="move-row">
-      <button type="button" className="move-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <span className="move-icon">{modeIcons[best.mode]}</span>
-        <span>
-          {formatDuration(best.minutes)} · {formatDistance(best.meters)}
-          {buffer > 0 && <span className="move-buffer"> · {t('여유 +{d}', { d: formatDuration(buffer) })}</span>}
-        </span>
-        <span className="move-caret" aria-hidden="true">
-          {open ? '▴' : '▾'}
-        </span>
-      </button>
+      <div className="move-line">
+        <button type="button" className="move-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+          <span className="move-icon">{modeIcons[best.mode]}</span>
+          <span>
+            {formatDuration(best.minutes)} · {formatDistance(best.meters)}
+            {buffer > 0 && <span className="move-buffer"> · {t('여유 +{d}', { d: formatDuration(buffer) })}</span>}
+          </span>
+          <span className="move-caret" aria-hidden="true">
+            {open ? '▴' : '▾'}
+          </span>
+        </button>
+        <a
+          className="move-nav"
+          href={naver ? naverDirectionsUrl(leg, best.mode) : googleDirectionsUrl(leg, best.mode)}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={naver ? openNaverDirections : openInNewWindow}
+        >
+          {naver ? t('네이버 지도 길찾기') : t('Google 지도 길찾기')} ↗
+        </a>
+      </div>
       {open && (
         <div className="move-detail">
           <div className="move-main">

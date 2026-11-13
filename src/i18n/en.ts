@@ -348,6 +348,8 @@ export const en: Record<string, string> = {
   '야경': 'nightview',
   // Google 지도 연결
   'Google 지도에서 열기': 'Open in Google Maps',
+  '네이버 지도 길찾기': 'Directions in Naver Map',
+  'Google 지도 길찾기': 'Directions in Google Maps',
   'Google 지도': 'Google Maps',
   // 결과 화면 장소 빼기
   '일정에서 빼기': 'Remove from plan',

@@ -1326,6 +1326,19 @@ a.btn { color: var(--text); text-decoration: none; display: inline-flex; align-i
 .move-toggle:hover { color: var(--text); }
 .move-caret { font-size: 10px; }
 .move-detail { margin-top: 4px; }
+/* 구간마다 길찾기 — 지도 앱으로 바로 안내 */
+.move-line { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
+.move-nav {
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--strong);
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.move-nav:hover { background: var(--bg); }
 
 /* 방문지 사진 썸네일 */
 .stop-thumb {
