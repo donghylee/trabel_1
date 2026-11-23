@@ -27,9 +27,9 @@ type Props = {
   onToggleBookmark: (post: FeedPost) => void
   /** 글쓴이에게 메시지 보내기 (다른 사람 글에만) */
   onMessage: (author: DmUser) => void
-  /** 마이페이지 [공유]로 들어오면 이 여행을 골라 둔 채 글쓰기 창을 바로 엶 */
-  writeTripId?: string | null
-  /** writeTripId를 받아 썼음 — 다음에 커뮤니티에 올 때 다시 열리지 않게 */
+  /** 마이페이지·찜한 여행 [공유]로 들어오면 이 여행을 골라 둔 채 글쓰기 창을 바로 엶 */
+  writeTrip?: SavedTrip | null
+  /** writeTrip을 받아 썼음 — 다음에 커뮤니티에 올 때 다시 열리지 않게 */
   onWriteTripUsed?: () => void
 }
 
@@ -42,16 +42,16 @@ export default function CommunityPage({
   isBookmarked,
   onToggleBookmark,
   onMessage,
-  writeTripId,
+  writeTrip,
   onWriteTripUsed,
 }: Props) {
   const [filter, setFilter] = useState<string | null>(null)
   const [sharing, setSharing] = useState<SavedTrip | null>(null)
   const feed = usePosts(user)
-  const [writeFor] = useState(() => writeTripId ?? undefined)
-  const [writing, setWriting] = useState(() => !!writeTripId && !!user)
+  const [writeFor] = useState(() => writeTrip ?? undefined)
+  const [writing, setWriting] = useState(() => !!writeTrip && !!user)
   useEffect(() => {
-    if (writeTripId) onWriteTripUsed?.()
+    if (writeTrip) onWriteTripUsed?.()
     // 처음 열릴 때 한 번만 받아 씀
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -184,8 +184,9 @@ export default function CommunityPage({
       ))}
       {writing && (
         <WriteDialog
-          trips={trips}
-          initialTripId={writeFor}
+          // 찜한 여행은 남의 일정이라 내 여행 목록에 없음 — 맨 앞에 넣어 고를 수 있게
+          trips={writeFor && !trips.some((x) => x.id === writeFor.id) ? [writeFor, ...trips] : trips}
+          initialTripId={writeFor?.id}
           onCancel={() => setWriting(false)}
           onSubmit={publish}
           onNewPlan={onNewPlan}

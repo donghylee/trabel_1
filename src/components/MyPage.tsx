@@ -152,6 +152,7 @@ export function SharedTripDetail({
   backLabel = t('목록'),
   onSelectDay,
   onCopyDay,
+  onPost,
 }: {
   trip: SavedTrip
   author: { nickname: string; icon: string }
@@ -160,6 +161,8 @@ export function SharedTripDetail({
   backLabel?: string
   onSelectDay: (dayNumber: number) => void
   onCopyDay: (day: SavedDay) => void
+  /** 있으면 [공유]가 커뮤니티 글쓰기로 바로 (찜한 여행), 없으면 공유 창 (메시지로 받은 일정) */
+  onPost?: () => void
 }) {
   const [sharing, setSharing] = useState(false)
   const day = trip.days.find((d) => d.dayNumber === dayNumber) ?? trip.days[0]
@@ -176,7 +179,7 @@ export function SharedTripDetail({
           {author.nickname}
         </span>
       </h2>
-      <button type="button" className="btn small" disabled={trip.days.length === 0} onClick={() => setSharing(true)}>
+      <button type="button" className="btn small" disabled={trip.days.length === 0} onClick={() => (onPost ? onPost() : setSharing(true))}>
         📤 {t('공유')}
       </button>
       <div className="day-tabs" role="tablist">
@@ -241,21 +244,13 @@ export default function MyPage({
   onNewPlan,
 }: Props) {
   const [renaming, setRenaming] = useState<string | null>(null)
+  // 내가 올린 글의 공유 창 (커뮤니티 게시글과 같은 방식)
   const [sharing, setSharing] = useState<SavedTrip | null>(null)
   const loggedIn = !!user
   const myPosts = usePosts(user, true)
   const [postError, setPostError] = useState(false)
   const trip = section === 'all' && !selection?.bookmark ? trips.find((x) => x.id === selection?.tripId) : undefined
   const bookmark = selection?.bookmark ? bookmarks?.find((b) => b.postId === selection.tripId) : undefined
-  const shareDialog = sharing && (
-    <ShareDialog
-      trip={sharing}
-      country={findCountry(sharing.countryCode)}
-      user={user}
-      onRequireLogin={onLogin}
-      onClose={() => setSharing(null)}
-    />
-  )
 
   // 여행 상세
   if (trip) {
@@ -334,7 +329,6 @@ export default function MyPage({
             </div>
           </>
         )}
-        {shareDialog}
       </div>
     )
   }
@@ -349,6 +343,7 @@ export default function MyPage({
         onBack={() => onSelect(null)}
         onSelectDay={(dayNumber) => onSelect({ tripId: bookmark.postId, dayNumber, bookmark: true })}
         onCopyDay={(day) => onCopyDay(bookmark.trip, day)}
+        onPost={() => onPostTrip(bookmark.trip)}
       />
     )
   }
@@ -493,7 +488,7 @@ export default function MyPage({
                       >
                         {t('일정 보기')}
                       </button>
-                      <button type="button" className="btn small" onClick={() => setSharing(b.trip)}>
+                      <button type="button" className="btn small" disabled={b.trip.days.length === 0} onClick={() => onPostTrip(b.trip)}>
                         📤 {t('공유')}
                       </button>
                       <button
@@ -535,7 +530,15 @@ export default function MyPage({
           ))}
         </div>
       )}
-      {shareDialog}
+      {sharing && (
+        <ShareDialog
+          trip={sharing}
+          country={findCountry(sharing.countryCode)}
+          user={user}
+          onRequireLogin={onLogin}
+          onClose={() => setSharing(null)}
+        />
+      )}
     </>
   )
 }
