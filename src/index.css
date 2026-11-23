@@ -889,6 +889,27 @@ body:has(.drag-ghost) { cursor: grabbing; }
 .share-preview img { width: 100%; display: block; }
 .share-preview .hint { align-self: center; }
 .share-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+/* 공유 — 다른 사람에게 메시지로 보내기 */
+.share-send { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; }
+.share-send-title { margin: 0; font-size: 15px; color: var(--strong); }
+.share-send .hint { margin: 0; }
+.share-people { display: flex; flex-wrap: wrap; gap: 6px; }
+.share-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+.share-person:hover { background: var(--bg); }
+.share-to { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.share-compose { display: flex; gap: 8px; }
+.share-compose .text-input { flex: 1; min-width: 0; }
 .share-actions .share-close { margin-left: auto; }
 
 /* 커뮤니티 피드 */

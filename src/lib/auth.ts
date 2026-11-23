@@ -5,6 +5,7 @@
 
 import { t } from '../i18n'
 import { supabase } from '../services/supabase'
+import type { DmUser } from '../types'
 import { deletePhotos, uploadPhoto } from './photos'
 
 const USERS_KEY = 'trip-route-planner:users:v1'
@@ -81,6 +82,26 @@ export async function isNicknameTaken(nickname: string, exceptId?: string): Prom
     return !error && (count ?? 0) > 0
   }
   return loadUsers().some((u) => same(u.nickname, value) && u.id !== exceptId)
+}
+
+/** 메시지 받을 사람 찾기 — 닉네임에 글자가 들어간 사람 (나는 빼고, 최대 10명). 못 찾거나 실패하면 빈 목록 */
+export async function searchUsers(text: string, exceptId: string): Promise<DmUser[]> {
+  const value = text.trim()
+  if (!value) return []
+  if (supabase) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, nickname, icon')
+      .ilike('nickname', `%${escapeLike(value)}%`)
+      .neq('id', exceptId)
+      .limit(10)
+    return error || !data ? [] : (data as Profile[]).map((p) => ({ id: p.id, nickname: p.nickname, icon: p.icon ?? '' }))
+  }
+  const lower = value.toLowerCase()
+  return loadUsers()
+    .filter((u) => u.id !== exceptId && u.nickname.toLowerCase().includes(lower))
+    .slice(0, 10)
+    .map((u) => ({ id: u.id, nickname: u.nickname, icon: u.icon ?? '' }))
 }
 
 /** 가입에 성공하면 null, 실패하면 이유 */
