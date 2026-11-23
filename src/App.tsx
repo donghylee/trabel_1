@@ -107,6 +107,8 @@ export default function App() {
   const [myPageSelection, setMyPageSelection] = useState<MyPageSelection>(() => loadScreen().selection)
   // 메시지: 열어 둔 대화, 메시지로 받은 일정을 지도로 보는 중이면 그 일정
   const [dmOpen, setDmOpen] = useState<string | null>(() => loadScreen().dm ?? null)
+  // 마이페이지 [공유]로 커뮤니티 글쓰기를 열 여행
+  const [writeTripId, setWriteTripId] = useState<string | null>(null)
   const [dmTrip, setDmTrip] = useState<{ trip: SavedTrip; from: DmUser; dayNumber: number | null } | null>(null)
   const inbox = useInbox(user)
 
@@ -526,6 +528,8 @@ export default function App() {
             isBookmarked={bookmarks.isBookmarked}
             onToggleBookmark={bookmarks.toggle}
             onMessage={(author) => void openDm(author)}
+            writeTripId={writeTripId}
+            onWriteTripUsed={() => setWriteTripId(null)}
           />
         </main>
       ) : view === 'messages' ? (
@@ -584,6 +588,10 @@ export default function App() {
             isBookmarked={bookmarks.isBookmarked}
             onToggleBookmark={bookmarks.toggle}
             onOpenCommunity={() => setView('community')}
+            onPostTrip={(trip) => {
+              setWriteTripId(trip.id)
+              setView('community')
+            }}
             selection={myPageSelection}
             onSelect={setMyPageSelection}
             onEditDay={editDay}

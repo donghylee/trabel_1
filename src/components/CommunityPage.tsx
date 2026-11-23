@@ -27,6 +27,10 @@ type Props = {
   onToggleBookmark: (post: FeedPost) => void
   /** 글쓴이에게 메시지 보내기 (다른 사람 글에만) */
   onMessage: (author: DmUser) => void
+  /** 마이페이지 [공유]로 들어오면 이 여행을 골라 둔 채 글쓰기 창을 바로 엶 */
+  writeTripId?: string | null
+  /** writeTripId를 받아 썼음 — 다음에 커뮤니티에 올 때 다시 열리지 않게 */
+  onWriteTripUsed?: () => void
 }
 
 /** 여행 일정을 공유하는 피드 — 사람들이 올린 글(서버, 없으면 이 브라우저). 올라온 글이 하나도 없을 때만 예시 게시물(getMockFeed) */
@@ -38,11 +42,19 @@ export default function CommunityPage({
   isBookmarked,
   onToggleBookmark,
   onMessage,
+  writeTripId,
+  onWriteTripUsed,
 }: Props) {
   const [filter, setFilter] = useState<string | null>(null)
   const [sharing, setSharing] = useState<SavedTrip | null>(null)
   const feed = usePosts(user)
-  const [writing, setWriting] = useState(false)
+  const [writeFor] = useState(() => writeTripId ?? undefined)
+  const [writing, setWriting] = useState(() => !!writeTripId && !!user)
+  useEffect(() => {
+    if (writeTripId) onWriteTripUsed?.()
+    // 처음 열릴 때 한 번만 받아 씀
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [loginNeeded, setLoginNeeded] = useState(false)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
 
@@ -171,10 +183,22 @@ export default function CommunityPage({
         />
       ))}
       {writing && (
-        <WriteDialog trips={trips} onCancel={() => setWriting(false)} onSubmit={publish} onNewPlan={onNewPlan} />
+        <WriteDialog
+          trips={trips}
+          initialTripId={writeFor}
+          onCancel={() => setWriting(false)}
+          onSubmit={publish}
+          onNewPlan={onNewPlan}
+        />
       )}
       {sharing && (
-        <ShareDialog trip={sharing} country={findCountry(sharing.countryCode)} onClose={() => setSharing(null)} />
+        <ShareDialog
+          trip={sharing}
+          country={findCountry(sharing.countryCode)}
+          user={user}
+          onRequireLogin={onRequireLogin}
+          onClose={() => setSharing(null)}
+        />
       )}
     </div>
   )

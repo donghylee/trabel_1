@@ -13,6 +13,8 @@ type Props = {
   /** 실패하면 안내 문구, 성공하면 null */
   onSubmit: (post: { trip: SavedTrip; caption: string; tags: string[]; photos: string[]; cover?: string }) => Promise<string | null>
   onNewPlan: () => void
+  /** 처음에 골라 둘 여행 (마이페이지 [공유]로 들어온 경우) */
+  initialTripId?: string
 }
 
 const MAX_PHOTOS = 4
@@ -22,9 +24,11 @@ type CoverKind = 'none' | 'country' | 'upload'
 const countryPhoto = (code: string) => `/countries/${code}.jpg`
 
 /** 커뮤니티 글쓰기 — 내 여행 하나를 골라 소개글·태그와 함께 올림 */
-export default function WriteDialog({ trips, onCancel, onSubmit, onNewPlan }: Props) {
+export default function WriteDialog({ trips, onCancel, onSubmit, onNewPlan, initialTripId }: Props) {
   const shareable = trips.filter((trip) => trip.days.length > 0)
-  const [tripId, setTripId] = useState(shareable[0]?.id ?? '')
+  const [tripId, setTripId] = useState(
+    shareable.some((trip) => trip.id === initialTripId) ? initialTripId! : (shareable[0]?.id ?? ''),
+  )
   const [caption, setCaption] = useState('')
   const [tags, setTags] = useState('')
   const [photos, setPhotos] = useState<string[]>([])

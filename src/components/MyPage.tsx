@@ -31,6 +31,8 @@ type Props = {
   isBookmarked: (postId: string) => boolean
   onToggleBookmark: (post: FeedPost) => void
   onOpenCommunity: () => void
+  /** 내 여행 [공유] — 커뮤니티 글쓰기로 바로 */
+  onPostTrip: (trip: SavedTrip) => void
   selection: MyPageSelection
   onSelect: (selection: MyPageSelection) => void
   onEditDay: (trip: SavedTrip, day: SavedDay) => void
@@ -227,6 +229,7 @@ export default function MyPage({
   isBookmarked,
   onToggleBookmark,
   onOpenCommunity,
+  onPostTrip,
   selection,
   onSelect,
   onEditDay,
@@ -248,6 +251,8 @@ export default function MyPage({
     <ShareDialog
       trip={sharing}
       country={findCountry(sharing.countryCode)}
+      user={user}
+      onRequireLogin={onLogin}
       onClose={() => setSharing(null)}
     />
   )
@@ -284,7 +289,7 @@ export default function MyPage({
             </button>
           </h2>
         )}
-        <button type="button" className="btn small" disabled={trip.days.length === 0} onClick={() => setSharing(trip)}>
+        <button type="button" className="btn small" disabled={trip.days.length === 0} onClick={() => onPostTrip(trip)}>
           📤 {t('공유')}
         </button>
         <div className="day-tabs" role="tablist">
@@ -402,7 +407,7 @@ export default function MyPage({
                       <button type="button" className="btn small" onClick={() => onSelect({ tripId: item.id, dayNumber: null })}>
                         {t('일정 보기')}
                       </button>
-                      <button type="button" className="btn small" disabled={item.days.length === 0} onClick={() => setSharing(item)}>
+                      <button type="button" className="btn small" disabled={item.days.length === 0} onClick={() => onPostTrip(item)}>
                         📤 {t('공유')}
                       </button>
                       <button
