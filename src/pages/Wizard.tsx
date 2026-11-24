@@ -3,10 +3,10 @@ import { findCountry, placesOf } from '../data/catalog'
 import { t } from '../i18n'
 import { toMinutes } from '../lib/time'
 import type { LatLng, TripInput } from '../types'
-import CountryStep from './steps/CountryStep'
-import LodgingStep from './steps/LodgingStep'
-import PlaceStep from './steps/PlaceStep'
-import TimeStep from './steps/TimeStep'
+import CountryStep from '../components/steps/CountryStep'
+import LodgingStep from '../components/steps/LodgingStep'
+import PlaceStep from '../components/steps/PlaceStep'
+import TimeStep from '../components/steps/TimeStep'
 
 const steps = [
   { label: '국가', title: '어느 나라로 여행하나요?' },

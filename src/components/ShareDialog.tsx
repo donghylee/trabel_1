@@ -5,7 +5,7 @@ import { searchUsers, type SessionUser } from '../lib/auth'
 import { fetchInbox, openConversation, sendMessage } from '../lib/messages'
 import { renderTripImage } from '../lib/shareImage'
 import type { Country, DmUser, SavedTrip } from '../types'
-import { UserIcon } from './AuthPage'
+import { UserIcon } from './UserIcon'
 
 type Props = {
   trip: SavedTrip

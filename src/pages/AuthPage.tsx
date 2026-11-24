@@ -1,6 +1,6 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { t } from '../i18n'
-import { isPhoto } from '../lib/photos'
+import { UserIcon } from '../components/UserIcon'
 import {
   DEFAULT_ICON,
   isNicknameTaken,
@@ -15,18 +15,6 @@ type Props = {
   user: SessionUser | null
   onLogin: (user: SessionUser) => void
   onUserChange: (user: SessionUser) => void
-}
-
-/** 프로필 아이콘 — 이모지면 글자로, 사진이면 동그랗게 잘라서 */
-export function UserIcon({ icon, size = 'small' }: { icon?: string; size?: 'small' | 'medium' | 'large' }) {
-  const value = icon || DEFAULT_ICON
-  return isPhoto(value) ? (
-    <img className={`user-icon ${size}`} src={value} alt="" />
-  ) : (
-    <span className={`user-icon ${size}`} aria-hidden="true">
-      {value}
-    </span>
-  )
 }
 
 export default function AuthPage({ user, onLogin, onUserChange }: Props) {

@@ -20,7 +20,7 @@ import {
 import { disablePush, enablePush, pushStatus, type PushStatus } from '../lib/push'
 import { timeAgo } from '../lib/time'
 import type { DmMessage, DmUser, SavedTrip } from '../types'
-import { UserIcon } from './AuthPage'
+import { UserIcon } from '../components/UserIcon'
 
 type Props = {
   user: SessionUser | null

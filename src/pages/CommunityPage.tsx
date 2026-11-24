@@ -10,9 +10,9 @@ import { serverEnabled } from '../services/supabase'
 import { renderTripImage } from '../lib/shareImage'
 import { timeAgo } from '../lib/time'
 import type { Country, DmUser, FeedComment, FeedPost, SavedTrip } from '../types'
-import { UserIcon } from './AuthPage'
-import ShareDialog from './ShareDialog'
-import WriteDialog from './WriteDialog'
+import { UserIcon } from '../components/UserIcon'
+import ShareDialog from '../components/ShareDialog'
+import WriteDialog from '../components/WriteDialog'
 
 /** 완료 안내가 떠 있는 시간 */
 const NOTICE_MS = 2000

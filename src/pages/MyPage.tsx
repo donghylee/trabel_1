@@ -9,10 +9,10 @@ import type { SessionUser } from '../lib/auth'
 import { usePosts } from '../hooks/usePosts'
 import { routeNote } from '../services/routes'
 import type { Bookmark, FeedPost, SavedDay, SavedTrip } from '../types'
-import { UserIcon } from './AuthPage'
+import { UserIcon } from '../components/UserIcon'
 import { PostCard } from './CommunityPage'
-import ScheduleView from './ScheduleView'
-import ShareDialog from './ShareDialog'
+import ScheduleView from '../components/ScheduleView'
+import ShareDialog from '../components/ShareDialog'
 import { serverEnabled } from '../services/supabase'
 
 /** bookmark면 tripId 자리에 찜한 게시물 id (다른 사람 일정이라 읽기 전용) */
