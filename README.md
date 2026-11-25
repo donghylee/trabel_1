@@ -42,7 +42,7 @@ trip-route-planner/
 ├─ supabase/               DB 스키마·마이그레이션, Edge Function (경로 중계, 메시지 푸시)
 ├─ docs/                   설정 안내 문서, 데이터 구조, 로드맵
 ├─ docker/                 Docker 이미지 (Dockerfile, nginx 설정)
-├─ scripts/                개발용 스크립트 (번역 누락 검사)
+├─ scripts/                개발용 스크립트 (번역 누락·식사 자리 검사)
 └─ screenshots/            README용 화면 캡처
 ```
 

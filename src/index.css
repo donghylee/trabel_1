@@ -568,6 +568,13 @@ button, input, select { font: inherit; color: inherit; }
 .day-summary { display: flex; gap: 8px; align-items: baseline; font-size: 13px; flex-wrap: wrap; }
 .day-route { color: var(--text); }
 .trip-card-actions { display: flex; gap: 6px; justify-content: flex-end; }
+/* 내 여행 페이지 점 — 점은 작아도 누르는 자리는 32px */
+.page-dots { display: flex; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+.page-dots button { width: 32px; height: 32px; padding: 0; border: 0; background: none; display: grid; place-items: center; cursor: pointer; }
+.page-dots button::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); opacity: 0.6; }
+.page-dots button[aria-current]::before { width: 20px; border-radius: 4px; background: var(--accent); opacity: 1; }
+/* 내 여행 — 아래 올린 글(.feed)과 같은 폭 */
+.my-trips { max-width: 470px; }
 .mypage-posts { margin-top: 4px; }
 
 /* 마이페이지 여행 상세 */
@@ -790,9 +797,11 @@ body:has(.drag-ghost) { cursor: grabbing; }
 }
 .auth-input:focus { outline: 2px solid var(--border); border-color: var(--strong); }
 .auth-input.invalid { border-color: var(--error); }
+.auth-input:read-only { background: var(--bg); color: var(--muted); }
 .login-row { display: flex; gap: 8px; align-items: stretch; }
 .login-inputs { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .login-btn { padding: 0 20px; }
+.auth-links { display: flex; gap: 14px; }
 .signup-link { align-self: flex-start; font-size: 12px; color: var(--muted); }
 .signup-form { display: flex; flex-direction: column; gap: 14px; }
 .signup-field { display: flex; flex-direction: column; gap: 6px; }
@@ -1211,7 +1220,16 @@ a.btn { color: var(--text); text-decoration: none; display: inline-flex; align-i
 .gmaps-name:hover { text-decoration: underline; }
 
 /* 결과 화면 장소 빼기 (작은 ✕) */
+/* 순서 바꾸기 ▲▼ — 시그니처 주황 테두리의 한 덩어리 버튼 */
+.reorder { display: flex; flex-shrink: 0; border: 1px solid var(--accent-light); border-radius: 8px; background: var(--panel); overflow: hidden; }
+.reorder button { width: 28px; height: 28px; padding: 0; border: none; background: none; color: var(--accent); font-size: 11px; line-height: 1; cursor: pointer; }
+.reorder button + button { border-left: 1px solid var(--accent-light); }
+.reorder button:hover:not(:disabled) { background: var(--accent); color: #fff; }
+.reorder button:focus-visible { outline-offset: -2px; }
+.reorder button:disabled { color: var(--border-strong); cursor: not-allowed; }
 .stop-remove { align-self: center; font-size: 12px; padding: 2px 4px; border-radius: 4px; }
+/* 추천 목록이 펼쳐진 식사 칸은 제목 옆에 */
+.timeline-stop.meal:has(.meal-options) .stop-remove { align-self: flex-start; }
 .stop-remove:hover:not(:disabled) { color: var(--error); background: #fef2f2; }
 .stop-remove:disabled { opacity: 0.3; cursor: not-allowed; }
 .stop-remove:disabled:hover { background: none; color: var(--muted); }

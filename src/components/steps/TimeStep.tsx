@@ -1,7 +1,7 @@
 import { t } from '../../i18n'
 import { MEAL_MINUTES, mealsBetween } from '../../lib/schedule'
 import { formatDuration, toMinutes } from '../../lib/time'
-import type { TripInput } from '../../types'
+import type { MealKind, TripInput } from '../../types'
 
 const MEAL_OPTIONS = [30, 60, 90, 120]
 const BUFFER_OPTIONS = [0, 5, 10, 15, 20, 30]
@@ -52,6 +52,8 @@ type Props = {
   totalStayMinutes: number
   /** 이동 구간 수 (장소 사이 + 숙소 출발·복귀) */
   moveCount: number
+  /** 결과 화면에서 ✕로 뺀 식사 */
+  skippedMeals?: MealKind[]
   mealMinutes?: number
   moveBufferMinutes?: number
   onChange: (patch: Partial<Pick<TripInput, 'startTime' | 'endTime'>> & PacePatch) => void
@@ -62,13 +64,14 @@ export default function TimeStep({
   endTime,
   totalStayMinutes,
   moveCount,
+  skippedMeals,
   mealMinutes = MEAL_MINUTES,
   moveBufferMinutes = 0,
   onChange,
 }: Props) {
   const available = toMinutes(endTime) - toMinutes(startTime)
   // 고른 식사 시간·이동 시간을 바로 빼서 보여 줌 (식사 수는 활동 시간에 걸친 점심·저녁)
-  const meals = mealsBetween(startTime, endTime)
+  const meals = mealsBetween(startTime, endTime, skippedMeals)
   const mealTotal = meals * mealMinutes
   const bufferTotal = moveCount * moveBufferMinutes
   const spare = available - totalStayMinutes - mealTotal - bufferTotal

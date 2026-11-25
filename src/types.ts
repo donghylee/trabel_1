@@ -63,6 +63,8 @@ export type TripInput = {
   endTime: string
   /** 식사 한 끼에 쓰는 시간(분). 없으면 60 */
   mealMinutes?: number
+  /** 결과 화면에서 ✕로 뺀 식사 — 자동으로 넣지 않음 */
+  skippedMeals?: MealKind[]
   /** 이동 구간마다 더하는 여유 시간(분). 없으면 0 */
   moveBufferMinutes?: number
   /** 장소 단계에서 순서를 직접 바꿨으면 true — selections 순서대로 방문 (없거나 false면 앱이 최적 순서로) */
@@ -161,7 +163,7 @@ export type Recommendation = {
 /** 식사 시간에 고른 음식점 */
 export type MealChoices = Partial<Record<MealKind, NearbyPlace>>
 
-/** 고른 음식점을 사용자가 끌어서 옮긴 자리 (몇 번 장소 다음인지, 0 = 첫 장소 전) */
+/** 사용자가 정한 식사 자리 (몇 번 장소 다음인지, 0 = 첫 장소 전). 음식점 없이 자리만 있으면 다시 고르는 칸 */
 export type MealSlots = Partial<Record<MealKind, number>>
 
 /** 저장한 하루 일정 — 입력 조건을 저장해 두고 볼 때 다시 계산 */

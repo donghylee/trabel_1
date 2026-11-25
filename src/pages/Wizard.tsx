@@ -75,7 +75,7 @@ export default function Wizard({ input, startAt = 'country', onChange, onComplet
             onChange={(countryCode) => {
               // 국가가 바뀌면 장소 선택을 초기화
               if (countryCode !== input.countryCode) {
-                onChange({ ...input, countryCode, selections: [], customPlaces: [], lodging: null })
+                onChange({ ...input, countryCode, selections: [], customPlaces: [], lodging: null, skippedMeals: [] })
               }
             }}
           />
@@ -115,6 +115,7 @@ export default function Wizard({ input, startAt = 'country', onChange, onComplet
                   (input.lodging && input.startFromLodging ? 1 : 0) +
                   (input.lodging && input.returnToLodging ? 1 : 0)
             }
+            skippedMeals={input.skippedMeals}
             mealMinutes={input.mealMinutes}
             moveBufferMinutes={input.moveBufferMinutes}
             onChange={(patch) => onChange({ ...input, ...patch })}

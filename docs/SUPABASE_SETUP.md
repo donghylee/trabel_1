@@ -34,6 +34,29 @@ Supabase 키를 넣기 전에는 로그인·저장한 여행·커뮤니티가 **
 - **Site URL**: Vercel 배포 주소 (예: `https://planj.vercel.app`)
 - **Redirect URLs**: 위 주소와 `http://localhost:5173` 추가
 
+### 비밀번호 찾기 메일
+
+로그인 화면의 **[비밀번호 찾기]** 는 메일로 보낸 인증번호로 비밀번호를 바꿉니다. 아래 두 가지를 설정해야 메일이 갑니다.
+
+1. **SMTP 연결** — Authentication → Emails → **SMTP Settings** → Enable Custom SMTP
+   - Supabase 기본 메일은 조직 팀원 주소로만 가고 시간당 2통이라, 일반 사용자에게는 보낼 수 없습니다.
+   - Gmail로 시작하는 예: Host `smtp.gmail.com`, Port `465`, Username은 Gmail 주소,
+     Password는 Google 계정 2단계 인증을 켠 뒤 만든 **앱 비밀번호** (Gmail 로그인 비밀번호 아님)
+   - ⚠️ 앱 비밀번호는 Supabase 화면에만 넣고, 코드·채팅·git에는 넣지 마세요.
+   - 연결하면 처음에는 시간당 30통입니다. **Authentication → Rate Limits**에서 확인·변경합니다.
+2. **메일 문구** — Authentication → Emails → Templates → **Reset Password**
+   - 제목 예: `[PLAN:J] 비밀번호 변경 인증번호`
+   - 본문에 인증번호 `{{ .Token }}`을 넣습니다 (링크 `{{ .ConfirmationURL }}`은 빼기).
+
+```html
+<h2>PLAN:J 비밀번호 변경</h2>
+<p>앱에 아래 인증번호를 입력해 주세요. 1시간 동안 한 번만 쓸 수 있습니다.</p>
+<p style="font-size:24px"><strong>{{ .Token }}</strong></p>
+<p>요청하지 않았다면 이 메일을 무시해 주세요.</p>
+```
+
+실제로 없는 E-mail로 가입한 계정은 메일을 받을 수 없어 비밀번호를 찾을 수 없습니다 (Confirm email을 꺼 둔 경우).
+
 ## 4. 키를 앱에 넣기
 
 **Project Settings → API** (또는 **Connect** 버튼)에서 두 값을 복사합니다.

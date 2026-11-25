@@ -12,5 +12,14 @@ export const supabase: SupabaseClient | null =
       })
     : null
 
+/** 비밀번호 찾기 전용 연결 — 인증번호를 확인해도 앱의 로그인 상태는 바뀌지 않게 따로 만들고 저장하지 않음 */
+export function createRecoveryClient(): SupabaseClient | null {
+  return config.supabaseUrl && config.supabaseAnonKey
+    ? createClient(config.supabaseUrl, config.supabaseAnonKey, {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'planj-recovery' },
+      })
+    : null
+}
+
 /** 서버를 쓰는지 (키가 설정됐는지) */
 export const serverEnabled = supabase !== null

@@ -6,12 +6,13 @@ import { isIos } from '../hooks/useInstallPrompt'
 import {
   googleDirectionsUrl,
   googleMapsUrl,
+  isSamePlace,
   naverDirectionsUrl,
   naverWebDirectionsUrl,
   openInNewWindow,
   openNaverDirections,
 } from '../lib/place'
-import { nearbyKindIcons, rankNearby } from '../lib/recommend'
+import { nearbyKindIcons, rankNearby, toPlace } from '../lib/recommend'
 import { mealLabels } from '../lib/schedule'
 import { STAY_OPTIONS, formatDuration, toHHMM, toMinutes } from '../lib/time'
 import { formatDistance, formatFare, modeIcons, modeLabels, pathStyles, recommendedOption } from '../lib/travel'
@@ -30,6 +31,7 @@ import type {
   TravelMode,
   TravelOption,
 } from '../types'
+import AddToPlanDialog from './AddToPlanDialog'
 import MapView, { type MapMarker, type MapPath } from './MapView'
 import NearbyPanel, { Stars, type KindFilter, type ScopeFilter } from './NearbyPanel'
 import PlaceThumb from './PlaceThumb'
@@ -68,8 +70,10 @@ export type ScheduleEditor = {
   onChangePace: (patch: { mealMinutes?: number; moveBufferMinutes?: number }) => void
   onResetOrder: () => void
   onApply: (adjustment: Adjustment) => void
-  onAddPlace: (rec: Recommendation) => void
-  onChooseMeal: (meal: MealKind, poi: NearbyPlace | null) => void
+  onAddPlace: (place: Place) => void
+  onChooseMeal: (meal: MealKind, poi: NearbyPlace) => void
+  onRemoveMeal: (meal: MealKind, slot: number) => void
+  onSkipMeal: (meal: MealKind) => void
 }
 
 const RECOMMENDATION_COUNT = 6
@@ -285,6 +289,8 @@ export default function ScheduleView({
     : undefined
   const [kind, setKind] = useState<KindFilter>('all')
   const [scope, setScope] = useState<ScopeFilter>('all')
+  // [+ 일정에 추가]를 누른 곳 — 점심·저녁·일정 중 고르는 중
+  const [adding, setAdding] = useState<{ place: Place; poi: NearbyPlace } | null>(null)
 
   const placeName = (id: string) => places.find((p) => p.id === id)?.name ?? id
   const spare = schedule.limitAt - schedule.endAt
@@ -308,6 +314,11 @@ export default function ScheduleView({
       ]),
     [stops, mealChoices],
   )
+
+  const isPicked = (place: Place) =>
+    [...stopPlaces, ...Object.values(mealChoices).flatMap((poi) => (poi ? [toPlace(poi)] : []))].some((p) =>
+      isSamePlace(p, place),
+    )
 
   const recommendations = useMemo(() => {
     const candidates = (activeScope === 'all' ? Object.values(nearby).flat() : nearby[activeScope] ?? []).filter(
@@ -365,7 +376,7 @@ export default function ScheduleView({
             id: chosen.id,
             label: '',
             title: `${t(mealLabels[item.meal])} · ${chosen.name}`,
-            subtitle: `⭐ ${chosen.rating.toFixed(1)} (${chosen.reviewCount.toLocaleString()}) · ${toHHMM(item.start)} ~ ${toHHMM(item.end)}`,
+            subtitle: `${chosen.reviewCount > 0 ? `⭐ ${chosen.rating.toFixed(1)} (${chosen.reviewCount.toLocaleString()}) · ` : ''}${toHHMM(item.start)} ~ ${toHHMM(item.end)}`,
             position: item.restaurant.location,
             variant: 'meal',
           })
@@ -593,17 +604,12 @@ export default function ScheduleView({
                             </div>
                           </button>
                           <div className="hint">
-                            <Stars rating={chosen.rating} reviewCount={chosen.reviewCount} /> ·{' '}
-                            {formatDuration(item.end - item.start)}{' '}
-                            {editor && (
-                              <button
-                                type="button"
-                                className="link-btn"
-                                onClick={() => editor.onChooseMeal(item.meal, null)}
-                              >
-                                {t('다른 곳 고르기')}
-                              </button>
+                            {chosen.reviewCount > 0 && (
+                              <>
+                                <Stars rating={chosen.rating} reviewCount={chosen.reviewCount} /> ·{' '}
+                              </>
                             )}
+                            {formatDuration(item.end - item.start)}
                           </div>
                         </>
                       ) : (
@@ -646,6 +652,17 @@ export default function ScheduleView({
                         </>
                       )}
                     </div>
+                    {editor && (
+                      <button
+                        type="button"
+                        className="remove-btn stop-remove"
+                        aria-label={t('{name} 빼기', { name: chosen?.name ?? t('{meal} 식사', { meal: t(mealLabels[item.meal]) }) })}
+                        title={t('일정에서 빼기')}
+                        onClick={() => (chosen ? editor.onRemoveMeal(item.meal, item.slot) : editor.onSkipMeal(item.meal))}
+                      >
+                        ✕
+                      </button>
+                    )}
                   </li>
                 )
               }
@@ -760,6 +777,7 @@ export default function ScheduleView({
           </p>
 
           <NearbyPanel
+            country={country}
             stops={stops}
             kind={kind}
             scope={activeScope}
@@ -769,10 +787,26 @@ export default function ScheduleView({
             loading={loading}
             highlightedId={highlightedId}
             onFocus={focusOnMap}
-            onAdd={editor?.onAddPlace}
+            isPicked={isPicked}
+            onAdd={editor && ((place, poi) => setAdding({ place, poi }))}
           />
         </div>
       </div>
+      {editor && adding && (
+        <AddToPlanDialog
+          name={adding.place.name}
+          mealChoices={mealChoices}
+          onMeal={(meal) => {
+            editor.onChooseMeal(meal, adding.poi)
+            setAdding(null)
+          }}
+          onPlace={() => {
+            editor.onAddPlace(adding.place)
+            setAdding(null)
+          }}
+          onCancel={() => setAdding(null)}
+        />
+      )}
     </div>
   )
 }

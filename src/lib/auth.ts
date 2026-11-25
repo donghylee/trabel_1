@@ -4,7 +4,7 @@
 // 화면은 이 파일의 함수만 부르므로 어느 쪽이든 똑같이 동작한다.
 
 import { t } from '../i18n'
-import { supabase } from '../services/supabase'
+import { createRecoveryClient, supabase } from '../services/supabase'
 import type { DmUser } from '../types'
 import { deletePhotos, uploadPhoto } from './photos'
 
@@ -159,6 +159,56 @@ export async function logIn(email: string, password: string): Promise<SessionUse
   const session: SessionUser = { id: user.id, nickname: user.nickname, email: user.email, icon: user.icon }
   saveSession(session)
   return session
+}
+
+// ── 비밀번호 찾기 (서버가 있을 때만) — 메일로 받은 인증번호를 앱에 입력 ──
+
+let recovery: ReturnType<typeof createRecoveryClient> = null
+
+/** 인증번호 메일을 요청. 성공하면 null, 실패하면 이유 (가입하지 않은 E-mail이어도 서버는 성공으로 답함) */
+export async function requestPasswordReset(email: string): Promise<string | null> {
+  recovery = createRecoveryClient()
+  if (!recovery) return resetErrorText(undefined)
+  const { error } = await recovery.auth.resetPasswordForEmail(email.trim())
+  return error ? resetErrorText(error.code) : null
+}
+
+/** 인증번호를 확인하고 새 비밀번호로 바꿈. 성공하면 null, 실패하면 이유 */
+export async function resetPassword(email: string, code: string, password: string): Promise<string | null> {
+  recovery ??= createRecoveryClient()
+  if (!recovery) return resetErrorText(undefined)
+  const address = email.trim().toLowerCase()
+  // 인증번호는 한 번만 쓸 수 있어, 확인은 됐는데 비밀번호가 거절된 경우 다시 확인하지 않음 (같은 E-mail일 때만)
+  const { data } = await recovery.auth.getSession()
+  if (data.session?.user.email?.toLowerCase() !== address) {
+    const { error } = await recovery.auth.verifyOtp({ email: address, token: code, type: 'recovery' })
+    if (error) return resetErrorText(error.code)
+  }
+  const { error } = await recovery.auth.updateUser({ password })
+  if (error) return resetErrorText(error.code)
+  // 다른 기기에 남은 로그인도 모두 끊음
+  await recovery.auth.signOut()
+  recovery = null
+  return null
+}
+
+function resetErrorText(code: string | undefined): string {
+  switch (code) {
+    case 'otp_expired':
+      return t('인증번호가 맞지 않거나 시간이 지났습니다. 다시 확인하거나 새로 받아 주세요.')
+    case 'same_password':
+      return t('지금까지 쓰던 PW와 다른 PW를 입력해 주세요.')
+    case 'weak_password':
+      return t('PW는 6자 이상으로 입력해 주세요.')
+    case 'email_address_invalid':
+    case 'validation_failed':
+      return t('올바른 E-mail 주소를 입력해 주세요.')
+    case 'over_email_send_rate_limit':
+    case 'over_request_rate_limit':
+      return t('요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.')
+    default:
+      return t('처리하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+  }
 }
 
 /** 내 계정 정보 일부(아이콘·닉네임)를 바꾸고 바뀐 로그인 정보를 돌려줌. 저장에 실패하면 null */

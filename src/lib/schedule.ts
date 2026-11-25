@@ -31,11 +31,16 @@ const mealWindows: { meal: MealKind; start: number; end: number }[] = [
 
 export const mealLabels: Record<MealKind, string> = { lunch: '점심', dinner: '저녁' }
 
+/** 활동 시간에 걸치는 점심·저녁 (✕로 뺀 식사 제외) */
+function autoMeals(start: number, end: number, skipped: MealKind[] = []) {
+  return mealWindows.filter(
+    (w) => !skipped.includes(w.meal) && Math.min(end, w.end) - Math.max(start, w.start) >= MEAL_MIN_OVERLAP,
+  )
+}
+
 /** 활동 시간에 걸치는 점심·저녁 수 (시간 단계 합계용 — 일정이 길어져 저녁이 더해지는 경우는 빼고 셈) */
-export function mealsBetween(startTime: string, endTime: string): number {
-  const start = toMinutes(startTime)
-  const end = toMinutes(endTime)
-  return mealWindows.filter((w) => Math.min(end, w.end) - Math.max(start, w.start) >= MEAL_MIN_OVERLAP).length
+export function mealsBetween(startTime: string, endTime: string, skipped?: MealKind[]): number {
+  return autoMeals(toMinutes(startTime), toMinutes(endTime), skipped).length
 }
 
 function stopsOf(input: TripInput, places: Place[]): Stop[] {
@@ -110,8 +115,16 @@ function optimizeOrder(legs: Map<string, Leg>, ids: string[], ends: Ends): strin
   )
 }
 
-/** 음식점을 고른 식사 — 정해진 자리(slot)에 경로 지점으로 들어감 */
-type FixedMeal = { meal: MealKind; slot: number; near: Place; restaurant: Place }
+/** 자리(slot)가 정해진 식사 — 음식점을 골랐으면 경로 지점으로 들어감 */
+type FixedMeal = { meal: MealKind; slot: number; near: Place; restaurant?: Place }
+
+/** 식사 시간대에 가장 가까운 자리 (몇 번 다음인지) */
+function nearestSlot(schedule: Schedule, meal: MealKind): number {
+  const { start, end } = mealWindows.find((w) => w.meal === meal)!
+  const times = [schedule.startAt, ...schedule.items.flatMap((it) => (it.kind === 'visit' ? [it.end] : []))]
+  const gaps = times.map((time) => Math.max(start - time, time - end, 0))
+  return gaps.indexOf(Math.min(...gaps))
+}
 
 /**
  * 입력 조건으로 하루 시간표를 만든다.
@@ -119,7 +132,7 @@ type FixedMeal = { meal: MealKind; slot: number; near: Place; restaurant: Place 
  * order를 주면 그 순서를 따르고, 없으면 이동시간이 가장 짧은 순서를 찾는다.
  * 숙소가 있으면 숙소에서 출발하고 숙소로 돌아오는 구간까지 포함한다.
  * mealChoices에 음식점이 있으면 그 식사 자리에 음식점을 들러 가는 경로로 만든다.
- * mealSlots에 자리가 있으면(사용자가 끌어서 옮긴 경우) 그 자리를 따른다.
+ * mealSlots에 자리가 있으면(사용자가 끌어서 옮겼거나 음식점을 지운 자리) 그 자리를 따른다.
  * realLegs에 실제 길찾기 결과가 있으면 그 구간은 실제 이동시간을 쓴다.
  */
 export function buildSchedule(
@@ -134,15 +147,17 @@ export function buildSchedule(
   // 1차: 음식점 없이 계산해서 식사가 어느 자리(몇 번 다음)에 오는지 정함
   const base = layoutDay(input, places, currency, order, [], realLegs)
   const visits = base.items.flatMap((item) => (item.kind === 'visit' ? [item.place] : []))
-  const fixed: FixedMeal[] = (Object.keys(mealChoices) as MealKind[]).flatMap((meal) => {
+  const fixed: FixedMeal[] = (Object.keys(mealLabels) as MealKind[]).flatMap((meal) => {
     const chosen = mealChoices[meal]
     const auto = base.items.find((item) => item.kind === 'meal' && item.meal === meal)
     const userSlot = mealSlots[meal]
-    // 자동으로 식사가 안 들어가는 시간대라도 사용자가 자리를 정했으면 넣음
-    if (!chosen || (!auto && userSlot === undefined)) return []
-    const slot = Math.min(Math.max(userSlot ?? (auto?.kind === 'meal' ? auto.slot : 0), 0), visits.length)
-    const near = visits[Math.max(slot - 1, 0)] ?? (auto?.kind === 'meal' ? auto.near : undefined)
+    if (!chosen && userSlot === undefined) return []
+    // 자동으로 식사가 안 들어가는 시간대라도 고른 음식점은 지우기 전까지 일정에 남김
+    const autoSlot = auto?.kind === 'meal' ? auto.slot : nearestSlot(base, meal)
+    const slot = Math.min(Math.max(userSlot ?? autoSlot, 0), visits.length)
+    const near = visits[Math.max(slot - 1, 0)]
     if (!near) return []
+    if (!chosen) return [{ meal, slot, near }]
     const restaurant: Place = {
       id: `meal-${meal}-${chosen.id}`,
       name: chosen.name,
@@ -174,7 +189,7 @@ function layoutDay(
   const endPoint = lodging && input.returnToLodging ? lodging : null
   const ends: Ends = { start: startPoint?.id ?? null, end: endPoint?.id ?? null }
 
-  const points = [...stops.map((s) => s.place), ...(lodging ? [lodging] : []), ...fixedMeals.map((f) => f.restaurant)]
+  const points = [...stops.map((s) => s.place), ...(lodging ? [lodging] : []), ...fixedMeals.flatMap((f) => f.restaurant ?? [])]
   // 순서 정하기는 거리 추정만으로 (실제 값이 일부만 있으면 순서가 왔다 갔다 할 수 있음)
   const estimatedLegs = legMatrix(points, currency)
   // 시간표에는 실제 길찾기 값이 있으면 그것을 씀
@@ -188,10 +203,8 @@ function layoutDay(
   const limitAt = toMinutes(input.endTime)
   const mealMinutes = input.mealMinutes ?? MEAL_MINUTES
   const moveBuffer = input.moveBufferMinutes ?? 0
-  const meals = mealWindows.filter(
-    (w) => Math.min(limitAt, w.end) - Math.max(startAt, w.start) >= MEAL_MIN_OVERLAP,
-  )
-  // 음식점을 고른 식사는 정해진 자리에서만 넣음
+  const meals = autoMeals(startAt, limitAt, input.skippedMeals)
+  // 자리가 정해진 식사는 그 자리에서만 넣음
   const eaten = new Set<MealKind>(fixedMeals.map((f) => f.meal))
 
   const items: ScheduleItem[] = []
@@ -208,12 +221,12 @@ function layoutDay(
     }
   }
 
-  /** slot번 다음에 들르는 음식점 — 지금 위치에서 음식점으로 이동하고 거기서 식사 */
+  /** slot번 다음의 식사 — 음식점을 골랐으면 지금 위치에서 음식점으로 이동하고 거기서 식사 */
   function fixedMealsAt(slot: number) {
     fixedMeals
       .filter((f) => f.slot === slot)
       .forEach((f) => {
-        if (prevId) move(prevId, f.restaurant.id)
+        if (prevId && f.restaurant) move(prevId, f.restaurant.id)
         items.push({
           kind: 'meal',
           meal: f.meal,
@@ -224,7 +237,7 @@ function layoutDay(
           restaurant: f.restaurant,
         })
         t += mealMinutes
-        prevId = f.restaurant.id
+        if (f.restaurant) prevId = f.restaurant.id
       })
   }
 

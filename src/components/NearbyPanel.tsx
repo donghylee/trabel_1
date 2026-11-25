@@ -1,15 +1,17 @@
 import { t } from '../i18n'
 import { googleMapsUrl, openInNewWindow } from '../lib/place'
-import { nearbyKindIcons, nearbyKindLabels } from '../lib/recommend'
+import { nearbyKindIcons, nearbyKindLabels, toPlace } from '../lib/recommend'
 import { googleEnabled } from '../services/google'
 import { formatDistance } from '../lib/travel'
-import type { NearbyKind, Place, Recommendation } from '../types'
+import type { Country, NearbyKind, NearbyPlace, Place, Recommendation } from '../types'
+import PlaceSearch from './PlaceSearch'
 
 export type KindFilter = 'all' | NearbyKind
 /** 'all' = 동선 전체, 그 밖에는 방문지 id */
 export type ScopeFilter = string
 
 type Props = {
+  country: Country
   stops: { place: Place; order: number }[]
   kind: KindFilter
   scope: ScopeFilter
@@ -19,8 +21,10 @@ type Props = {
   loading: boolean
   highlightedId: string | null
   onFocus: (poiId: string) => void
-  /** 없으면 [+ 일정에 추가] 버튼을 숨김 */
-  onAdd?: (rec: Recommendation) => void
+  /** 이미 일정이나 식사로 넣은 곳인지 */
+  isPicked: (place: Place) => boolean
+  /** [+ 일정에 추가] — 방문지로 넣을 place와 식사로 넣을 poi. 없으면 버튼과 검색창을 숨김 */
+  onAdd?: (place: Place, poi: NearbyPlace) => void
 }
 
 const kindTabs: KindFilter[] = ['all', 'restaurant', 'cafe', 'attraction']
@@ -34,6 +38,7 @@ export function Stars({ rating, reviewCount }: { rating: number; reviewCount: nu
 }
 
 export default function NearbyPanel({
+  country,
   stops,
   kind,
   scope,
@@ -43,6 +48,7 @@ export default function NearbyPanel({
   loading,
   highlightedId,
   onFocus,
+  isPicked,
   onAdd,
 }: Props) {
   const orderOf = (placeId: string) => stops.find((s) => s.place.id === placeId)?.order
@@ -68,6 +74,20 @@ export default function NearbyPanel({
           </button>
         ))}
       </div>
+
+      {onAdd && (
+        <PlaceSearch
+          country={country}
+          near={(stops.find((s) => s.place.id === scope) ?? stops[0])?.place.location ?? null}
+          placeholder={t('직접 검색해서 일정에 추가')}
+          isPicked={isPicked}
+          pickLabel={t('+ 일정에 추가')}
+          // 검색 결과에는 별점이 없음 (요금이 더 높은 필드) — 0이면 화면에 별점을 숨김
+          onPick={(place) =>
+            onAdd(place, { id: place.id, name: place.name, kind: 'restaurant', location: place.location, rating: 0, reviewCount: 0 })
+          }
+        />
+      )}
 
       <div className="chips">
         <button
@@ -121,7 +141,7 @@ export default function NearbyPanel({
                 {t('Google 지도')} ↗
               </a>
               {onAdd && (
-                <button type="button" className="btn small" onClick={() => onAdd(rec)}>
+                <button type="button" className="btn small" onClick={() => onAdd(toPlace(rec.poi), rec.poi)}>
                   {t('+ 일정에 추가')}
                 </button>
               )}

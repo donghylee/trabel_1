@@ -17,9 +17,9 @@ import { useFetchRealLegs, useRealLegStore } from './hooks/useRealLegs'
 import { useBookmarks } from './hooks/useBookmarks'
 import { useInbox } from './hooks/useInbox'
 import { useTrips } from './hooks/useTrips'
+import { askConfirm } from './lib/confirm'
 import { dayColor } from './lib/dayColors'
 import { t, useI18n } from './i18n'
-import { toPlace } from './lib/recommend'
 import { applyAdjustment, buildSchedule, suggestAdjustments } from './lib/schedule'
 import { loadSession, logOut, watchSession, type SessionUser } from './lib/auth'
 import { openConversation } from './lib/messages'
@@ -35,7 +35,7 @@ import type {
   MealKind,
   MealSlots,
   NearbyPlace,
-  Recommendation,
+  Place,
   SavedDay,
   SavedTrip,
   TripInput,
@@ -227,8 +227,7 @@ export default function App() {
     setJustSaved(false)
   }
 
-  function addPlace(rec: Recommendation) {
-    const place = toPlace(rec.poi)
+  function addPlace(place: Place) {
     setInput({
       ...input,
       customPlaces: [...input.customPlaces.filter((p) => p.id !== place.id), place],
@@ -239,19 +238,34 @@ export default function App() {
     setJustSaved(false)
   }
 
-  function chooseMeal(meal: MealKind, poi: NearbyPlace | null) {
-    setMealChoices((prev) => {
-      const next = { ...prev }
-      if (poi) next[meal] = poi
-      else delete next[meal]
-      return next
-    })
-    // 음식점을 새로 고르거나 지우면 자리는 다시 자동으로
-    setMealSlots((prev) => {
-      const next = { ...prev }
-      delete next[meal]
-      return next
-    })
+  function chooseMeal(meal: MealKind, poi: NearbyPlace) {
+    setMealChoices({ ...mealChoices, [meal]: poi })
+    setInput({ ...input, skippedMeals: input.skippedMeals?.filter((m) => m !== meal) })
+    setJustSaved(false)
+  }
+
+  /** 고른 음식점의 ✕ — 지우고 다시 고르는 칸을 띄움 (자동 식사 시간대가 아니면 지운 자리에) */
+  function removeMeal(meal: MealKind, slot: number) {
+    if (!result || !country) return
+    const choices = { ...mealChoices }
+    const slots = { ...mealSlots }
+    delete choices[meal]
+    delete slots[meal]
+    const next = buildSchedule(input, result.places, country.currency, customOrder ?? undefined, choices, slots, realLegs.legs)
+    if (!next.items.some((it) => it.kind === 'meal' && it.meal === meal)) slots[meal] = slot
+    setMealChoices(choices)
+    setMealSlots(slots)
+    setJustSaved(false)
+  }
+
+  /** 음식점을 고르지 않은 식사 칸의 ✕ — 식사 시간 자체를 뺌 (주변 추천에서 그 식사를 추가하면 다시 들어감) */
+  async function skipMeal(meal: MealKind) {
+    const message = t(
+      '식사 시간을 삭제합니다.\n추가를 원하실 경우 하단의 주변 추천에서\n추가해 주시면 정상적으로 추가됩니다.',
+    )
+    if (!(await askConfirm(message))) return
+    setInput((prev) => ({ ...prev, skippedMeals: [...(prev.skippedMeals ?? []), meal] }))
+    setMealSlots((prev) => ({ ...prev, [meal]: undefined }))
     setJustSaved(false)
   }
 
@@ -304,7 +318,7 @@ export default function App() {
 
   /** 같은 나라·숙소·활동 시간으로 다음 일차 일정을 새로 시작 */
   function startDay(trip: SavedTrip | undefined, base: TripInput) {
-    setInput({ ...base, selections: [], customPlaces: [], orderFixed: false })
+    setInput({ ...base, selections: [], customPlaces: [], orderFixed: false, skippedMeals: [] })
     setCustomOrder(null)
     setMealChoices({})
     setMealSlots({})
@@ -700,6 +714,8 @@ export default function App() {
                 onApply: apply,
                 onAddPlace: addPlace,
                 onChooseMeal: chooseMeal,
+                onRemoveMeal: removeMeal,
+                onSkipMeal: skipMeal,
               }}
             />
           ) : (
@@ -713,7 +729,14 @@ export default function App() {
                 key={wizardKey}
                 input={input}
                 startAt={wizardStart}
-                onChange={setInput}
+                onChange={(next) => {
+                  // 나라를 바꾸면 그 나라에서 고른 식사도 비움
+                  if (next.countryCode !== input.countryCode) {
+                    setMealChoices({})
+                    setMealSlots({})
+                  }
+                  setInput(next)
+                }}
                 onComplete={() => {
                   // 장소 단계에서 순서를 직접 정했으면 그 순서, 아니면 조건이 바뀌었을 수 있으므로 다시 최적화
                   setCustomOrder(input.orderFixed ? input.selections.map((s) => s.placeId) : null)

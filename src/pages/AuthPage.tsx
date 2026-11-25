@@ -1,15 +1,18 @@
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { t } from '../i18n'
 import { UserIcon } from '../components/UserIcon'
 import {
   DEFAULT_ICON,
   isNicknameTaken,
   logIn,
+  requestPasswordReset,
+  resetPassword,
   signUp,
   updateIcon,
   updateNickname,
   type SessionUser,
 } from '../lib/auth'
+import { serverEnabled } from '../services/supabase'
 
 type Props = {
   user: SessionUser | null
@@ -18,9 +21,10 @@ type Props = {
 }
 
 export default function AuthPage({ user, onLogin, onUserChange }: Props) {
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
-  // 가입 직후 로그인 화면에 E-mail을 채워 둠
-  const [justSignedUp, setJustSignedUp] = useState<string | null>(null)
+  const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login')
+  // 가입·비밀번호 변경 직후 로그인 화면에 E-mail을 채우고 안내를 보여 줌
+  const [email, setEmail] = useState('')
+  const [notice, setNotice] = useState<string | null>(null)
 
   if (user) return <AccountInfo user={user} onUserChange={onUserChange} />
 
@@ -29,7 +33,22 @@ export default function AuthPage({ user, onLogin, onUserChange }: Props) {
       <SignupForm
         onCancel={() => setMode('login')}
         onDone={(email) => {
-          setJustSignedUp(email)
+          setEmail(email)
+          setNotice(t('회원가입이 완료되었습니다. 로그인해 주세요.'))
+          setMode('login')
+        }}
+      />
+    )
+  }
+
+  if (mode === 'forgot') {
+    return (
+      <ForgotForm
+        initialEmail={email}
+        onCancel={() => setMode('login')}
+        onDone={(email) => {
+          setEmail(email)
+          setNotice(t('비밀번호가 변경되었습니다. 새 PW로 로그인해 주세요.'))
           setMode('login')
         }}
       />
@@ -38,24 +57,31 @@ export default function AuthPage({ user, onLogin, onUserChange }: Props) {
 
   return (
     <LoginForm
-      initialEmail={justSignedUp ?? ''}
-      justSignedUp={!!justSignedUp}
+      initialEmail={email}
+      notice={notice}
       onLogin={onLogin}
       onSignup={() => setMode('signup')}
+      onForgot={(email) => {
+        setEmail(email)
+        setNotice(null)
+        setMode('forgot')
+      }}
     />
   )
 }
 
 function LoginForm({
   initialEmail,
-  justSignedUp,
+  notice,
   onLogin,
   onSignup,
+  onForgot,
 }: {
   initialEmail: string
-  justSignedUp: boolean
+  notice: string | null
   onLogin: (user: SessionUser) => void
   onSignup: () => void
+  onForgot: (email: string) => void
 }) {
   const [email, setEmail] = useState(initialEmail)
   const [password, setPassword] = useState('')
@@ -90,7 +116,7 @@ function LoginForm({
   return (
     <section className="wizard auth-card">
       <h2 className="wizard-title">{t('로그인')}</h2>
-      {justSignedUp && !error && <p className="notice success">{t('회원가입이 완료되었습니다. 로그인해 주세요.')}</p>}
+      {notice && !error && <p className="notice success">{notice}</p>}
       <form className="login-row" onSubmit={submit} noValidate>
         <div className="login-inputs">
           <input
@@ -119,9 +145,194 @@ function LoginForm({
         </button>
       </form>
       {error && <p className="field-error">{error}</p>}
-      <button type="button" className="link-btn signup-link" onClick={onSignup}>
-        {t('회원가입')}
-      </button>
+      <div className="auth-links">
+        <button type="button" className="link-btn signup-link" onClick={onSignup}>
+          {t('회원가입')}
+        </button>
+        {/* 메일을 보낼 서버가 있을 때만 */}
+        {serverEnabled && (
+          <button type="button" className="link-btn signup-link" onClick={() => onForgot(email)}>
+            {t('비밀번호 찾기')}
+          </button>
+        )}
+      </div>
+    </section>
+  )
+}
+
+/** 인증번호를 다시 받을 수 있을 때까지 (서버 제한과 같게) */
+const RESEND_SECONDS = 60
+
+/** 비밀번호 찾기 — E-mail로 인증번호를 받아 새 비밀번호로 바꿈 */
+function ForgotForm({
+  initialEmail,
+  onCancel,
+  onDone,
+}: {
+  initialEmail: string
+  onCancel: () => void
+  onDone: (email: string) => void
+}) {
+  const [step, setStep] = useState<'email' | 'code'>('email')
+  const [email, setEmail] = useState(initialEmail)
+  const [code, setCode] = useState('')
+  const [password, setPassword] = useState('')
+  const [passwordConfirm, setPasswordConfirm] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [wait, setWait] = useState(0)
+
+  useEffect(() => {
+    if (wait === 0) return
+    const timer = setTimeout(() => setWait(wait - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [wait])
+
+  const emailValid = () => {
+    const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+    setError(ok ? null : t('올바른 E-mail 주소를 입력해 주세요.'))
+    return ok
+  }
+
+  async function send() {
+    if (!emailValid()) return
+    setBusy(true)
+    const failure = await requestPasswordReset(email)
+    setBusy(false)
+    setError(failure)
+    if (failure) return
+    setNotice(t('가입된 E-mail이면 인증번호를 보냈습니다. 메일이 없으면 스팸함도 확인해 주세요.'))
+    setCode('')
+    setWait(RESEND_SECONDS)
+    setStep('code')
+  }
+
+  async function change() {
+    if (!code) return setError(t('인증번호를 입력해 주세요.'))
+    if (password.length < MIN_PASSWORD_LENGTH) return setError(t('PW는 6자 이상으로 입력해 주세요.'))
+    if (password !== passwordConfirm) return setError(t('PW가 일치하지 않습니다.'))
+    setBusy(true)
+    const failure = await resetPassword(email, code, password)
+    setBusy(false)
+    if (failure) {
+      setNotice(null)
+      setError(failure)
+      return
+    }
+    onDone(email.trim())
+  }
+
+  return (
+    <section className="wizard auth-card">
+      <h2 className="wizard-title">{t('비밀번호 찾기')}</h2>
+      {error ? (
+        <p className="notice error-notice" role="alert">
+          {error}
+        </p>
+      ) : (
+        notice && (
+          <p className="notice success" role="status">
+            {notice}
+          </p>
+        )
+      )}
+      <form
+        className="signup-form"
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault()
+          void (step === 'email' ? send() : change())
+        }}
+      >
+        <div className="signup-field">
+          <label htmlFor="forgot-email">E-mail</label>
+          <input
+            id="forgot-email"
+            className="auth-input"
+            type="email"
+            autoComplete="email"
+            placeholder="example@email.com"
+            value={email}
+            readOnly={step === 'code'}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          {step === 'email' && <p className="hint">{t('가입할 때 쓴 E-mail로 인증번호를 보내 드립니다.')}</p>}
+        </div>
+
+        {step === 'code' && (
+          <>
+            <div className="signup-field">
+              <label htmlFor="forgot-code">{t('인증번호')}</label>
+              <div className="with-button">
+                <input
+                  id="forgot-code"
+                  className="auth-input"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={10}
+                  placeholder={t('메일로 받은 숫자')}
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                  autoFocus
+                />
+                <button type="button" className="btn small" disabled={busy || wait > 0} onClick={() => void send()}>
+                  {wait > 0 ? t('다시 받기 ({n}초)', { n: wait }) : t('다시 받기')}
+                </button>
+              </div>
+            </div>
+            <div className="signup-field">
+              <label htmlFor="forgot-password">{t('새 PW')}</label>
+              <input
+                id="forgot-password"
+                className="auth-input"
+                type="password"
+                autoComplete="new-password"
+                placeholder={t('PW (6자 이상)')}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+            <div className="signup-field">
+              <label htmlFor="forgot-passwordConfirm">{t('PW 확인')}</label>
+              <input
+                id="forgot-passwordConfirm"
+                className="auth-input"
+                type="password"
+                autoComplete="new-password"
+                placeholder={t('PW 다시 입력')}
+                value={passwordConfirm}
+                onChange={(e) => setPasswordConfirm(e.target.value)}
+              />
+            </div>
+          </>
+        )}
+
+        {/* 메일을 보고 오는 사이 앱이 새로 열려도 받은 번호로 이어서 할 수 있게 */}
+        {step === 'email' && (
+          <button type="button" className="link-btn signup-link" onClick={() => emailValid() && setStep('code')}>
+            {t('이미 인증번호를 받았어요')}
+          </button>
+        )}
+
+        <div className="wizard-nav">
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              if (step === 'email') return onCancel()
+              setError(null)
+              setNotice(null)
+              setStep('email')
+            }}
+          >
+            {step === 'email' ? t('로그인으로 돌아가기') : t('이전')}
+          </button>
+          <button type="submit" className="btn primary" disabled={busy || (step === 'email' && wait > 0)}>
+            {step === 'code' ? t('비밀번호 변경') : wait > 0 ? t('다시 받기 ({n}초)', { n: wait }) : t('인증번호 받기')}
+          </button>
+        </div>
+      </form>
     </section>
   )
 }

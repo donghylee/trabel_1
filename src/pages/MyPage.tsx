@@ -15,6 +15,9 @@ import ScheduleView from '../components/ScheduleView'
 import ShareDialog from '../components/ShareDialog'
 import { serverEnabled } from '../services/supabase'
 
+/** 내 여행 목록 한 페이지에 보여 줄 여행 수 */
+const TRIPS_PER_PAGE = 3
+
 /** bookmark면 tripId 자리에 찜한 게시물 id (다른 사람 일정이라 읽기 전용) */
 export type MyPageSelection = { tripId: string; dayNumber: number | null; bookmark?: boolean } | null
 
@@ -244,6 +247,14 @@ export default function MyPage({
   onNewPlan,
 }: Props) {
   const [renaming, setRenaming] = useState<string | null>(null)
+  const [pageWanted, setPage] = useState(0)
+  const pageCount = Math.ceil(trips.length / TRIPS_PER_PAGE)
+  // 마지막 페이지의 여행을 다 지우면 앞 페이지로
+  const page = Math.max(0, Math.min(pageWanted, pageCount - 1))
+  // 최근에 고친 여행부터
+  const pageTrips = [...trips]
+    .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+    .slice(page * TRIPS_PER_PAGE, (page + 1) * TRIPS_PER_PAGE)
   // 내가 올린 글의 공유 창 (커뮤니티 게시글과 같은 방식)
   const [sharing, setSharing] = useState<SavedTrip | null>(null)
   const loggedIn = !!user
@@ -352,7 +363,7 @@ export default function MyPage({
   return (
     <>
       {section === 'all' && (
-        <div className="wizard mypage">
+        <div className="wizard mypage my-trips">
           <div className="schedule-head">
             <h2 className="wizard-title">{t('내 여행')}</h2>
             <button type="button" className="btn small primary" onClick={onNewPlan}>
@@ -373,7 +384,7 @@ export default function MyPage({
             </p>
           ) : (
             <ul className="trip-list">
-              {trips.map((item) => {
+              {pageTrips.map((item) => {
                 const c = findCountry(item.countryCode)
                 return (
                   <li key={item.id} className="trip-card">
@@ -420,6 +431,22 @@ export default function MyPage({
                 )
               })}
             </ul>
+          )}
+          {pageCount > 1 && (
+            <nav className="page-dots" aria-label={t('내 여행 페이지')}>
+              {Array.from({ length: pageCount }, (_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  aria-label={t('{n}페이지', { n: i + 1 })}
+                  aria-current={i === page ? 'page' : undefined}
+                  onClick={() => {
+                    setPage(i)
+                    window.scrollTo(0, 0)
+                  }}
+                />
+              ))}
+            </nav>
           )}
           <p className="hint">
             {serverEnabled
