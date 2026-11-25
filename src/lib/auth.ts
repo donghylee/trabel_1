@@ -168,31 +168,34 @@ let recovery: ReturnType<typeof createRecoveryClient> = null
 /** 인증번호 메일을 요청. 성공하면 null, 실패하면 이유 (가입하지 않은 E-mail이어도 서버는 성공으로 답함) */
 export async function requestPasswordReset(email: string): Promise<string | null> {
   recovery = createRecoveryClient()
-  if (!recovery) return resetErrorText(undefined)
+  if (!recovery) return resetErrorText({})
   const { error } = await recovery.auth.resetPasswordForEmail(email.trim())
-  return error ? resetErrorText(error.code) : null
+  return error ? resetErrorText(error, true) : null
 }
 
 /** 인증번호를 확인하고 새 비밀번호로 바꿈. 성공하면 null, 실패하면 이유 */
 export async function resetPassword(email: string, code: string, password: string): Promise<string | null> {
   recovery ??= createRecoveryClient()
-  if (!recovery) return resetErrorText(undefined)
+  if (!recovery) return resetErrorText({})
   const address = email.trim().toLowerCase()
   // 인증번호는 한 번만 쓸 수 있어, 확인은 됐는데 비밀번호가 거절된 경우 다시 확인하지 않음 (같은 E-mail일 때만)
   const { data } = await recovery.auth.getSession()
   if (data.session?.user.email?.toLowerCase() !== address) {
     const { error } = await recovery.auth.verifyOtp({ email: address, token: code, type: 'recovery' })
-    if (error) return resetErrorText(error.code)
+    if (error) return resetErrorText(error)
   }
   const { error } = await recovery.auth.updateUser({ password })
-  if (error) return resetErrorText(error.code)
+  if (error) return resetErrorText(error)
   // 다른 기기에 남은 로그인도 모두 끊음
   await recovery.auth.signOut()
   recovery = null
   return null
 }
 
-function resetErrorText(code: string | undefined): string {
+/** sending: 인증번호 메일을 요청하다 난 오류 */
+function resetErrorText({ code, status }: { code?: string; status?: number }, sending = false): string {
+  // 서버에 닿지 못함
+  if (status === 0) return t('인터넷 연결을 확인한 뒤 다시 시도해 주세요.')
   switch (code) {
     case 'otp_expired':
       return t('인증번호가 맞지 않거나 시간이 지났습니다. 다시 확인하거나 새로 받아 주세요.')
@@ -206,8 +209,15 @@ function resetErrorText(code: string | undefined): string {
     case 'over_email_send_rate_limit':
     case 'over_request_rate_limit':
       return t('요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.')
-    default:
-      return t('처리하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+    case 'email_address_not_authorized':
+      return t('메일을 보내지 못했습니다. 서버에 메일 발송(SMTP) 설정이 필요합니다.')
+    default: {
+      // 원인을 찾을 수 있게 오류 코드를 함께 (SMTP 오류는 500 또는 504)
+      const reason = code ?? status ?? '-'
+      return sending
+        ? t('메일을 보내지 못했습니다. 잠시 후 다시 시도해 주세요. (오류: {reason})', { reason })
+        : t('처리하지 못했습니다. 잠시 후 다시 시도해 주세요. (오류: {reason})', { reason })
+    }
   }
 }
 
