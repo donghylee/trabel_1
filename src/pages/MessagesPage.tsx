@@ -20,6 +20,7 @@ import {
 import { disablePush, enablePush, pushStatus, type PushStatus } from '../lib/push'
 import { timeAgo } from '../lib/time'
 import type { DmMessage, DmUser, SavedTrip } from '../types'
+import { TabIcons } from '../components/TabIcons'
 import { UserIcon } from '../components/UserIcon'
 
 type Props = {
@@ -290,8 +291,8 @@ function Conversation({
   return (
     <div className="wizard dm-page dm-chat">
       <header className="dm-chat-head">
-        <button type="button" className="btn small" onClick={onBack} aria-label={t('메시지 목록으로')}>
-          ←
+        <button type="button" className="icon-btn dm-round-btn" onClick={onBack} aria-label={t('메시지 목록으로')}>
+          {TabIcons.back}
         </button>
         {other && <UserIcon icon={other.icon} size="medium" />}
         <strong className="dm-chat-name">{other?.nickname ?? ''}</strong>
@@ -381,12 +382,12 @@ function Conversation({
         <div className="dm-attach">
           <button
             type="button"
-            className="icon-btn dm-attach-btn"
+            className="icon-btn dm-round-btn dm-attach-btn"
             aria-label={t('사진·일정 보내기')}
             aria-expanded={attachOpen}
             onClick={() => setAttachOpen(!attachOpen)}
           >
-            +
+            {TabIcons.plus}
           </button>
           {attachOpen && (
             <ul className="tab-menu-list" role="menu">

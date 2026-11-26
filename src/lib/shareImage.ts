@@ -8,11 +8,12 @@ import { toHHMM } from './time'
 // 일차마다 시간표(몇 시에 어디)를 간략하게 담는다. 이동 구간은 빼고 머무는 곳만.
 
 const WIDTH = 1080
+/** 커뮤니티 게시글 칸과 같은 3:4 */
+const HEIGHT = 1440
 const PAD = 64
 const FONT = "'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif"
 const COLORS = {
   bg: '#f6f7f9',
-  panel: '#ffffff',
   text: '#1d2330',
   muted: '#6b7280',
   border: '#e5e7eb',
@@ -25,6 +26,8 @@ type Line = { time: string; text: string; font: string; color: string; height: n
 type Row = { time: string; text: string; color: string; bold: boolean }
 
 const TIME_WIDTH = 230
+/** 일차 카드 사이 간격 (위아래·옆 칸) */
+const COL_GAP = 24
 
 /** 저장된 하루 일정을 다시 계산해서 시간표 줄과 하루 시간대로. 계산이 안 되면 요약의 장소 이름만 */
 function rowsOf(day: SavedDay, country: Country | undefined): { range: string; rows: Row[] } {
@@ -151,9 +154,22 @@ export async function renderTripImage(trip: SavedTrip, country: Country | undefi
 
   const headerHeight = 220
   const footerHeight = 90
-  const height = headerHeight + days.reduce((sum, d) => sum + d.height + 24, 0) + footerHeight
+  const height = HEIGHT
   canvas.width = WIDTH
   canvas.height = height
+  // 일정이 길어 3:4에 다 안 들어가면 일차 카드를 1~3칸으로 나누고 비율 그대로 줄여 한 장에 담음 — 글씨가 가장 크게 나오는 칸 수로
+  const cardWidth = WIDTH - PAD * 2
+  const room = height - headerHeight - footerHeight
+  const layout = [1, 2, 3]
+    .filter((cols) => cols <= days.length)
+    .map((cols) => {
+      const per = Math.ceil(days.length / cols)
+      const groups = Array.from({ length: cols }, (_, c) => days.slice(c * per, (c + 1) * per)).filter((g) => g.length > 0)
+      const colWidth = (cardWidth - COL_GAP * (groups.length - 1)) / groups.length
+      const colHeight = Math.max(...groups.map((g) => g.reduce((sum, d) => sum + d.height + COL_GAP, 0) - COL_GAP))
+      return { groups, colWidth, colHeight, scale: Math.min(1, colWidth / cardWidth, room / colHeight) }
+    })
+    .reduce((a, b) => (b.scale > a.scale ? b : a))
 
   // 배경 + 머리글
   if (photo) {
@@ -188,11 +204,19 @@ export async function renderTripImage(trip: SavedTrip, country: Country | undefi
   ctx.shadowColor = 'transparent'
   ctx.shadowBlur = 0
 
-  // 일차별 카드
-  let y = headerHeight
-  for (const day of days) {
-    // 사진 배경일 때는 살짝 비치는 흰 창
-    ctx.fillStyle = photo ? 'rgba(255,255,255,0.92)' : COLORS.panel
+  // 일차별 카드 — 한 칸이면 가운데, 여러 칸이면 칸마다 왼쪽부터.
+  // 위아래로도 남는 공간의 가운데에 두어, 일차가 늘수록 묶음이 위로 넓어짐
+  const { groups, colWidth, colHeight, scale } = layout
+  const top = headerHeight + (room - colHeight * scale) / 2
+  groups.forEach((group, col) => {
+    const left = groups.length === 1 ? PAD + (cardWidth * (1 - scale)) / 2 : PAD + col * (colWidth + COL_GAP)
+    ctx.save()
+    ctx.translate(left - PAD * scale, top)
+    ctx.scale(scale, scale)
+    let y = 0
+    for (const day of group) {
+    // 흰 창은 40% 투명 — 배경(사진)이 비쳐 보이고 글자는 읽히게
+    ctx.fillStyle = 'rgba(255,255,255,0.6)'
     ctx.strokeStyle = photo ? 'rgba(255,255,255,0.7)' : COLORS.border
     ctx.lineWidth = 2
     ctx.beginPath()
@@ -213,8 +237,10 @@ export async function renderTripImage(trip: SavedTrip, country: Country | undefi
       ctx.fillText(line.text, PAD + 24 + (i === 0 ? 0 : TIME_WIDTH), top)
       ly += line.height
     })
-    y += day.height + 24
-  }
+    y += day.height + COL_GAP
+    }
+    ctx.restore()
+  })
 
   ctx.fillStyle = photo ? 'rgba(255,255,255,0.9)' : COLORS.muted
   ctx.font = font(22)

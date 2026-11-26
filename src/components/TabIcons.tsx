@@ -1,4 +1,4 @@
-// 휴대폰 하단 탭바 아이콘 — 선 아이콘, 색은 글자색(currentColor)을 따름
+// 선 아이콘 (휴대폰 하단 탭바, 메시지 화면 버튼, 커뮤니티 사진 넘기기) — 색은 글자색(currentColor)을 따름
 
 const svgProps = {
   viewBox: '0 0 24 24',
@@ -11,6 +11,28 @@ const svgProps = {
 } as const
 
 export const TabIcons = {
+  // 메시지: 뒤로가기 ←, 사진·일정 보내기 +
+  back: (
+    <svg {...svgProps} strokeWidth={2.2}>
+      <path d="M19 12H5M11 6l-6 6 6 6" />
+    </svg>
+  ),
+  // 커뮤니티 사진 넘기기 ‹ ›
+  prev: (
+    <svg {...svgProps} strokeWidth={2.4}>
+      <path d="M15 6l-6 6 6 6" />
+    </svg>
+  ),
+  next: (
+    <svg {...svgProps} strokeWidth={2.4}>
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  ),
+  plus: (
+    <svg {...svgProps} strokeWidth={2.2}>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  ),
   // 지도 핀 + 경로
   planner: (
     <svg {...svgProps}>

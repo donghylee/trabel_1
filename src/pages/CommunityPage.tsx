@@ -8,6 +8,8 @@ import { usePosts } from '../hooks/usePosts'
 import { addComment as saveComment, deleteComment, isServerPost, loadReactions, setLiked as saveLiked } from '../lib/reactions'
 import { serverEnabled } from '../services/supabase'
 import { renderTripImage } from '../lib/shareImage'
+import { useSwipe } from '../hooks/useSwipe'
+import { TabIcons } from '../components/TabIcons'
 import { timeAgo } from '../lib/time'
 import type { Country, DmUser, FeedComment, FeedPost, SavedTrip } from '../types'
 import { UserIcon } from '../components/UserIcon'
@@ -208,9 +210,6 @@ export default function CommunityPage({
 /** 일정 요약 이미지 (공유 이미지와 같은 그림, cover가 있으면 사진 배경) */
 function TripImage({ trip, country, cover }: { trip: SavedTrip; country: Country | undefined; cover?: string }) {
   const [url, setUrl] = useState<string | null>(null)
-  const [expanded, setExpanded] = useState(false)
-  // 세로 4:5보다 긴 일정만 접어 두고 [전체 일정 보기]로 펼침
-  const [tall, setTall] = useState(false)
 
   useEffect(() => {
     let made: string | null = null
@@ -230,20 +229,11 @@ function TripImage({ trip, country, cover }: { trip: SavedTrip; country: Country
   }, [trip, country, cover])
 
   return (
-    <div className={`post-image ${url ? '' : 'loading'} ${tall && !expanded ? 'collapsed' : ''}`}>
+    <div className="post-image">
       {url ? (
-        <img
-          src={url}
-          alt={t('{name} 일정', { name: tripTitle(trip) })}
-          onLoad={(e) => setTall(e.currentTarget.naturalHeight / e.currentTarget.naturalWidth > 5 / 4)}
-        />
+        <img src={url} alt={t('{name} 일정', { name: tripTitle(trip) })} />
       ) : (
         <div className="post-image-loading hint">{t('일정 불러오는 중…')}</div>
-      )}
-      {tall && (
-        <button type="button" className="post-image-toggle" onClick={() => setExpanded(!expanded)}>
-          {expanded ? t('접기') : t('전체 일정 보기')}
-        </button>
       )}
     </div>
   )
@@ -262,46 +252,48 @@ function PostMedia({
   cover?: string
 }) {
   const [index, setIndex] = useState(0)
-  const touchX = useRef<number | null>(null)
   const count = photos.length + 1
-  if (count === 1) return <TripImage trip={trip} country={country} cover={cover} />
-
   const go = (next: number) => setIndex(Math.max(0, Math.min(count - 1, next)))
+  const swipe = useSwipe(index, count, go)
+  if (count === 1) return <TripImage trip={trip} country={country} cover={cover} />
 
   return (
     <div
-      className="post-media"
-      onTouchStart={(e) => (touchX.current = e.touches[0].clientX)}
-      onTouchEnd={(e) => {
-        if (touchX.current === null) return
-        const dx = e.changedTouches[0].clientX - touchX.current
-        if (Math.abs(dx) > 40) go(index + (dx < 0 ? 1 : -1))
-        touchX.current = null
-      }}
+      className="post-media swipe-area"
+      {...swipe.handlers}
     >
-      {index === 0 ? (
+      {/* 일정 이미지와 사진을 가로로 이어 붙여 끌면 옆 칸이 바로 따라옴 */}
+      <div className="swipe-track" style={swipe.trackStyle}>
         <TripImage trip={trip} country={country} cover={cover} />
-      ) : (
-        <div className="post-photo">
-          <img src={photos[index - 1]} alt={t('{name} 사진 {n}', { name: tripTitle(trip), n: index })} />
-        </div>
-      )}
+        {photos.map((src, i) => (
+          <div key={i} className="post-photo" inert={i + 1 !== index}>
+            <img src={src} alt={t('{name} 사진 {n}', { name: tripTitle(trip), n: i + 1 })} loading="lazy" />
+          </div>
+        ))}
+      </div>
       <span className="post-media-count">
         {index + 1}/{count}
       </span>
       {index > 0 && (
         <button type="button" className="post-media-nav prev" aria-label={t('이전 사진')} onClick={() => go(index - 1)}>
-          ‹
+          {TabIcons.prev}
         </button>
       )}
       {index < count - 1 && (
         <button type="button" className="post-media-nav next" aria-label={t('다음 사진')} onClick={() => go(index + 1)}>
-          ›
+          {TabIcons.next}
         </button>
       )}
-      <div className="post-media-dots" aria-hidden="true">
+      {/* 점을 누르면 그 사진으로 바로 */}
+      <div className="post-media-dots">
         {Array.from({ length: count }, (_, i) => (
-          <span key={i} className={i === index ? 'active' : ''} />
+          <button
+            key={i}
+            type="button"
+            aria-label={t('{n}번째 사진으로', { n: i + 1 })}
+            aria-current={i === index ? 'true' : undefined}
+            onClick={() => go(i)}
+          />
         ))}
       </div>
     </div>

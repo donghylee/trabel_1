@@ -576,6 +576,13 @@ button, input, select { font: inherit; color: inherit; }
 /* 내 여행 — 아래 올린 글(.feed)과 같은 폭 */
 .my-trips { max-width: 470px; }
 .mypage-posts { margin-top: 4px; }
+/* 옆으로 끌어서 넘기는 곳 — 위아래 스크롤만 브라우저에 맡기고, 끄는 동안 글자가 선택되지 않게 */
+.swipe-area { touch-action: pan-y; user-select: none; }
+/* 보이는 창 밖의 옆 칸은 숨김, 칸들은 가로로 한 줄 */
+.swipe-area { overflow: hidden; }
+.swipe-track { display: flex; align-items: flex-start; }
+.swipe-track > * { flex: 0 0 100%; min-width: 0; }
+.trip-pages { transition: height 0.3s; }
 
 /* 마이페이지 여행 상세 */
 .mypage-detail { flex: 1; display: flex; flex-direction: column; height: calc(100vh - 57px); min-width: 0; }
@@ -936,23 +943,11 @@ body:has(.drag-ghost) { cursor: grabbing; }
 .post-author { display: flex; flex-direction: column; min-width: 0; font-size: 14px; }
 .post-author .hint { font-size: 12px; }
 .post-time { margin-left: auto; font-size: 12px; white-space: nowrap; }
-.post-image { position: relative; background: var(--bg); overflow: hidden; }
-.post-image.loading, .post-image.collapsed { aspect-ratio: 4 / 5; }
-.post-image img { width: 100%; display: block; }
-.post-image-loading { height: 100%; display: flex; align-items: center; justify-content: center; }
-.post-image-toggle {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  padding: 6px 12px;
-  border: none;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.7);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
+.post-image { position: relative; overflow: hidden; }
+/* 일정 이미지와 함께 올린 사진은 같은 3:4 세로 칸 — 비율이 다르면 남는 곳은 검게 */
+.post-image, .post-photo, .cover-preview { aspect-ratio: 3 / 4; background: #000; display: flex; align-items: center; justify-content: center; }
+.post-image img, .post-photo img, .cover-preview img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.post-image-loading, .cover-preview .hint { color: #cbd5e1; }
 .post-actions { display: flex; align-items: center; gap: 4px; padding: 6px 8px 0; }
 .icon-btn {
   display: flex;
@@ -1056,8 +1051,6 @@ body:has(.drag-ghost) { cursor: grabbing; }
 
 /* 피드 사진 넘기기 */
 .post-media { position: relative; }
-.post-photo { aspect-ratio: 4 / 5; background: #111827; display: flex; align-items: center; justify-content: center; }
-.post-photo img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
 .post-media-count {
   position: absolute;
   top: 10px;
@@ -1073,22 +1066,27 @@ body:has(.drag-ghost) { cursor: grabbing; }
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  /* 아이콘을 원의 정가운데에 */
+  display: grid;
+  place-items: center;
   border: none;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
-  color: var(--text);
-  font-size: 22px;
-  line-height: 1;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  /* 원은 보이지 않게 — 화살표만 주황(10% 투명), 밝은 사진 위에서도 보이게 옅은 그림자 */
+  background: none;
+  color: rgb(248 106 7 / 0.9);
   cursor: pointer;
 }
+.post-media-nav svg { width: 28px; height: 28px; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)); }
+.post-media-nav:hover { color: var(--accent); }
 .post-media-nav.prev { left: 10px; }
 .post-media-nav.next { right: 10px; }
-.post-media-dots { display: flex; justify-content: center; gap: 4px; padding: 8px 0 0; }
-.post-media-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--border); }
-.post-media-dots span.active { background: var(--strong); }
+.post-media-dots { display: flex; justify-content: center; padding: 2px 0 0; }
+/* 점은 작아도 누르는 자리는 넉넉하게 */
+.post-media-dots button { width: 18px; height: 22px; padding: 0; border: none; background: none; display: grid; place-items: center; cursor: pointer; }
+.post-media-dots button::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--border-strong); }
+.post-media-dots button[aria-current]::before { background: var(--strong); }
 .tab-menu-caret { font-size: 11px; color: var(--muted); }
 .post-comment { display: flex; align-items: flex-start; gap: 4px; }
 .post-comment > span { flex: 1; min-width: 0; }
@@ -1416,6 +1414,9 @@ div.stop-body > .as-link { width: 100%; }
 
 /* [이전]이 없는 첫 단계에서도 [다음]은 오른쪽에 */
 .wizard-next { margin-left: auto; }
+/* [진행중인 과정으로...]는 [다음] 바로 왼쪽에 */
+.wizard-resume { margin-left: auto; }
+.wizard-resume + .wizard-next { margin-left: 0; }
 
 /* 장소 단계 선택 목록: 이름 바로 옆에 종류(두 글자)를 같은 높이로 나란히 */
 /* 고른 장소 줄은 한 줄에 — 좁으면 이름만 말줄임(…) */
@@ -1489,14 +1490,7 @@ div.stop-body > .as-link { width: 100%; }
 .cover-choice.upload:not([style]) { align-items: center; justify-content: center; border-style: dashed; }
 .cover-choice.upload:not([style]) span { background: none; color: var(--muted); text-align: center; }
 .cover-choice.selected { border-color: var(--strong); box-shadow: inset 0 0 0 2px var(--strong); }
-.cover-preview {
-  max-height: 260px;
-  overflow-y: auto;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg);
-}
-.cover-preview img { width: 100%; display: block; }
+.cover-preview { width: min(100%, 260px); margin: 0 auto; border-radius: 10px; overflow: hidden; } /* 글쓰기 창이 너무 길어지지 않게 */
 .cover-preview .hint { padding: 16px; text-align: center; }
 
 /* 다이렉트 메시지 */
@@ -1607,7 +1601,24 @@ div.stop-body > .as-link { width: 100%; }
 .dm-attachments + .dm-compose { border-top: none; }
 .dm-compose .text-input { flex: 1; min-width: 0; }
 .dm-attach { position: relative; }
-.dm-attach-btn { width: 40px; height: 40px; font-size: 24px; line-height: 1; border: 1px solid var(--border); border-radius: 50%; }
+/* 메시지 화면의 둥근 버튼(← 뒤로, + 보내기) — 시그니처 주황, 아이콘은 정가운데 */
+.dm-round-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--accent-light);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--accent);
+}
+.dm-round-btn svg { width: 20px; height: 20px; transition: transform 0.2s; }
+.dm-round-btn:hover,
+.dm-round-btn[aria-expanded='true'] { background: var(--accent); border-color: var(--accent); color: #fff; }
+/* 메뉴가 열리면 +를 ×로 */
+.dm-attach-btn[aria-expanded='true'] svg { transform: rotate(45deg); }
 .dm-attach .tab-menu-list { top: auto; bottom: 100%; left: 0; right: auto; margin: 0 0 6px; }
 .dm-attach .tab-menu-list button {
   width: 100%;

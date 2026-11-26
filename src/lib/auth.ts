@@ -104,9 +104,9 @@ export async function searchUsers(text: string, exceptId: string): Promise<DmUse
     .map((u) => ({ id: u.id, nickname: u.nickname, icon: u.icon ?? '' }))
 }
 
-/** 새 비밀번호 규칙: 16자 이상, 영문·숫자·특수문자(키보드 기호)를 모두 포함 — 서버(Supabase)는 16자·영문·숫자까지 검사 */
+/** 새 비밀번호 규칙: 10자 이상, 영문·숫자·특수문자(키보드 기호)를 모두 포함 — 서버(Supabase)는 10자·영문·숫자까지 검사 */
 export const isStrongPassword = (password: string) =>
-  password.length >= 16 && /[A-Za-z]/.test(password) && /\d/.test(password) && /[!-/:-@[-`{-~]/.test(password)
+  password.length >= 10 && /[A-Za-z]/.test(password) && /\d/.test(password) && /[!-/:-@[-`{-~]/.test(password)
 
 /** 가입에 성공하면 null, 실패하면 이유 */
 export async function signUp(input: { email: string; nickname: string; password: string }): Promise<string | null> {
@@ -140,7 +140,7 @@ export async function signUp(input: { email: string; nickname: string; password:
 
 function signUpErrorText(code: string | undefined, message: string): string {
   if (code === 'user_already_exists' || /already registered/i.test(message)) return t('이미 가입된 E-mail입니다.')
-  if (code === 'weak_password' || /password/i.test(message)) return t('PW는 영문·숫자·특수문자를 섞어 16자 이상으로 입력해 주세요.')
+  if (code === 'weak_password' || /password/i.test(message)) return t('PW는 영문·숫자·특수문자를 섞어 10자 이상으로 입력해 주세요.')
   if (code === 'email_address_invalid' || /email/i.test(message)) return t('올바른 E-mail 주소를 입력해 주세요.')
   // 닉네임이 겹치면 profiles를 만드는 단계에서 막힘
   if (/database error/i.test(message)) return t('이미 사용 중인 닉네임입니다.')
@@ -206,7 +206,7 @@ function resetErrorText({ code, status }: { code?: string; status?: number }, se
     case 'same_password':
       return t('지금까지 쓰던 PW와 다른 PW를 입력해 주세요.')
     case 'weak_password':
-      return t('PW는 영문·숫자·특수문자를 섞어 16자 이상으로 입력해 주세요.')
+      return t('PW는 영문·숫자·특수문자를 섞어 10자 이상으로 입력해 주세요.')
     case 'email_address_invalid':
     case 'validation_failed':
       return t('올바른 E-mail 주소를 입력해 주세요.')

@@ -211,7 +211,7 @@ function ForgotForm({
 
   async function change() {
     if (!code) return setError(t('인증번호를 입력해 주세요.'))
-    if (!isStrongPassword(password)) return setError(t('PW는 영문·숫자·특수문자를 섞어 16자 이상으로 입력해 주세요.'))
+    if (!isStrongPassword(password)) return setError(t('PW는 영문·숫자·특수문자를 섞어 10자 이상으로 입력해 주세요.'))
     if (password !== passwordConfirm) return setError(t('PW가 일치하지 않습니다.'))
     setBusy(true)
     const failure = await resetPassword(email, code, password)
@@ -289,7 +289,7 @@ function ForgotForm({
                 className="auth-input"
                 type="password"
                 autoComplete="new-password"
-                placeholder={t('PW (영문·숫자·특수문자 16자 이상)')}
+                placeholder={t('PW (영문·숫자·특수문자 10자 이상)')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -402,7 +402,7 @@ function SignupForm({ onCancel, onDone }: { onCancel: () => void; onDone: (email
     if (!nicknameChecked)
       next.nickname =
         nicknameCheck?.value === values.nickname.trim() ? t('이미 사용 중인 닉네임입니다.') : t('닉네임 중복 확인을 해 주세요.')
-    if (!isStrongPassword(values.password)) next.password = t('PW는 영문·숫자·특수문자를 섞어 16자 이상으로 입력해 주세요.')
+    if (!isStrongPassword(values.password)) next.password = t('PW는 영문·숫자·특수문자를 섞어 10자 이상으로 입력해 주세요.')
     if (values.password !== values.passwordConfirm) next.passwordConfirm = t('PW가 일치하지 않습니다.')
     if (!agreed) next.agree = t('약관에 동의(체크)해야 회원가입이 가능합니다.')
 
@@ -479,11 +479,11 @@ function SignupForm({ onCancel, onDone }: { onCancel: () => void; onDone: (email
 
         <div className="signup-field">
           <label htmlFor="signup-password">PW</label>
-          {input('password', { type: 'password', autoComplete: 'new-password', placeholder: t('PW (영문·숫자·특수문자 16자 이상)') })}
+          {input('password', { type: 'password', autoComplete: 'new-password', placeholder: t('PW (영문·숫자·특수문자 10자 이상)') })}
           {errors.password ? (
             <p className="field-error">{errors.password}</p>
           ) : (
-            <p className="hint">{t('예: travel2026!seoul (영문·숫자·특수문자를 섞어 16자 이상)')}</p>
+            <p className="hint">{t('예: trip2026!go (영문·숫자·특수문자를 섞어 10자 이상)')}</p>
           )}
         </div>
 

@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { findCountry, placesOf } from '../data/catalog'
 import { t } from '../i18n'
 import { toMinutes } from '../lib/time'
@@ -17,18 +16,17 @@ const steps = [
 
 type Props = {
   input: TripInput
-  /**
-   * 처음 보여줄 단계.
-   * time = 결과 화면에서 "조건 수정"으로 돌아올 때, places = "다음 날 일정 만들기"로 나라는 그대로 두고 시작할 때
-   */
-  startAt?: 'country' | 'places' | 'time'
+  /** 지금 단계 (0 국가 · 1 장소 · 2 숙소 · 3 시간) — App이 기억해서 뒤로가기로 이전 단계에 돌아감 */
+  step: number
+  onStepChange: (step: number) => void
+  /** 만들던 도중 로고로 첫 단계에 왔으면 — 그 자리로 돌아가기 */
+  onResume?: () => void
   onChange: (input: TripInput) => void
   onComplete: () => void
 }
 
-export default function Wizard({ input, startAt = 'country', onChange, onComplete }: Props) {
+export default function Wizard({ input, step, onStepChange: setStep, onResume, onChange, onComplete }: Props) {
   const lastStep = steps.length - 1
-  const [step, setStep] = useState({ country: 0, places: 1, time: lastStep }[startAt])
   const country = findCountry(input.countryCode)
   const totalStay = input.selections.reduce((sum, s) => sum + s.stayMinutes, 0)
 
@@ -128,6 +126,11 @@ export default function Wizard({ input, startAt = 'country', onChange, onComplet
         {step > 0 && (
           <button type="button" className="btn" onClick={() => setStep(step - 1)}>
             {t('이전')}
+          </button>
+        )}
+        {onResume && (
+          <button type="button" className="btn wizard-resume" onClick={onResume}>
+            {t('진행중인 과정으로...')}
           </button>
         )}
         <button

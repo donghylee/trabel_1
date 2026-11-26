@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { findCountry, localizePlaceName, placesOf, tripTitle } from '../data/catalog'
 import { useFetchRealLegs, useRealLegStore } from '../hooks/useRealLegs'
 import { t } from '../i18n'
@@ -7,6 +7,7 @@ import { buildSchedule } from '../lib/schedule'
 import { askConfirm } from '../lib/confirm'
 import type { SessionUser } from '../lib/auth'
 import { usePosts } from '../hooks/usePosts'
+import { useSwipe } from '../hooks/useSwipe'
 import { routeNote } from '../services/routes'
 import type { Bookmark, FeedPost, SavedDay, SavedTrip } from '../types'
 import { UserIcon } from '../components/UserIcon'
@@ -248,13 +249,29 @@ export default function MyPage({
 }: Props) {
   const [renaming, setRenaming] = useState<string | null>(null)
   const [pageWanted, setPage] = useState(0)
+  const listRef = useRef<HTMLDivElement>(null)
+  // 점을 누르거나 옆으로 밀어서 페이지를 넘기면 목록 맨 위가 보이게
+  const goPage = (next: number) => {
+    setPage(next)
+    if ((listRef.current?.getBoundingClientRect().top ?? 0) < 0) listRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
   const pageCount = Math.ceil(trips.length / TRIPS_PER_PAGE)
   // 마지막 페이지의 여행을 다 지우면 앞 페이지로
   const page = Math.max(0, Math.min(pageWanted, pageCount - 1))
-  // 최근에 고친 여행부터
-  const pageTrips = [...trips]
-    .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
-    .slice(page * TRIPS_PER_PAGE, (page + 1) * TRIPS_PER_PAGE)
+  const swipe = useSwipe(page, pageCount, goPage)
+  // 최근에 고친 여행부터, 페이지마다 3개씩
+  const sortedTrips = [...trips].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+  const pages = Array.from({ length: pageCount }, (_, i) => sortedTrips.slice(i * TRIPS_PER_PAGE, (i + 1) * TRIPS_PER_PAGE))
+  // 페이지마다 높이가 달라서 보이는 창 높이를 지금 페이지에 맞춤
+  const trackRef = useRef<HTMLDivElement>(null)
+  const [listHeight, setListHeight] = useState<number>()
+  useLayoutEffect(() => {
+    const el = trackRef.current?.children[page] as HTMLElement | undefined
+    if (!el) return
+    const observer = new ResizeObserver(() => setListHeight(el.offsetHeight))
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [page, pageCount])
   // 내가 올린 글의 공유 창 (커뮤니티 게시글과 같은 방식)
   const [sharing, setSharing] = useState<SavedTrip | null>(null)
   const loggedIn = !!user
@@ -383,7 +400,11 @@ export default function MyPage({
               {t('아직 저장한 여행이 없습니다. 일정을 만든 뒤 결과 화면의 [저장] 버튼으로 1일차, 2일차처럼 저장할 수 있습니다.')}
             </p>
           ) : (
-            <ul className="trip-list">
+            // 옆으로 끌거나 밀면 다음·이전 페이지 — 페이지들을 가로로 이어 붙여 옆 페이지가 바로 따라옴
+            <div ref={listRef} className="swipe-area trip-pages" style={{ height: listHeight }} {...swipe.handlers}>
+            <div ref={trackRef} className="swipe-track" style={swipe.trackStyle}>
+            {pages.map((pageTrips, i) => (
+            <ul key={i} className="trip-list" inert={i !== page}>
               {pageTrips.map((item) => {
                 const c = findCountry(item.countryCode)
                 return (
@@ -431,6 +452,9 @@ export default function MyPage({
                 )
               })}
             </ul>
+            ))}
+            </div>
+            </div>
           )}
           {pageCount > 1 && (
             <nav className="page-dots" aria-label={t('내 여행 페이지')}>
@@ -440,10 +464,7 @@ export default function MyPage({
                   type="button"
                   aria-label={t('{n}페이지', { n: i + 1 })}
                   aria-current={i === page ? 'page' : undefined}
-                  onClick={() => {
-                    setPage(i)
-                    window.scrollTo(0, 0)
-                  }}
+                  onClick={() => goPage(i)}
                 />
               ))}
             </nav>

@@ -61,6 +61,37 @@ type View = 'planner' | 'mypage' | 'bookmarks' | 'community' | 'messages' | 'log
 const SCREEN_KEY = 'trip-route-planner:screen'
 type Screen = { view: View; selection: MyPageSelection; /** 열어 둔 메시지 대화 */ dm?: string | null }
 
+// 만들던 일정 — 새로고침하거나 앱을 다시 열어도 이어서 만들 수 있게 이 기기에 둠
+const DRAFT_KEY = 'trip-route-planner:draft:v1'
+type Draft = {
+  input: TripInput
+  phase: 'input' | 'result'
+  step: number
+  customOrder: string[] | null
+  mealChoices: MealChoices
+  mealSlots: MealSlots
+  editing: Editing | null
+}
+
+function loadDraft(): Draft | null {
+  try {
+    const d = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? 'null') as Partial<Draft> | null
+    // 형식이 다르면(예전 버전 등) 버림
+    if (!d || !Array.isArray(d.input?.selections) || !Array.isArray(d.input?.customPlaces)) return null
+    return {
+      input: { ...initialInput, ...d.input },
+      phase: d.phase === 'result' && d.input.selections.length > 0 ? 'result' : 'input',
+      step: typeof d.step === 'number' ? Math.min(Math.max(d.step, 0), 3) : 0,
+      customOrder: Array.isArray(d.customOrder) ? d.customOrder : null,
+      mealChoices: d.mealChoices ?? {},
+      mealSlots: d.mealSlots ?? {},
+      editing: d.editing ?? null,
+    }
+  } catch {
+    return null
+  }
+}
+
 function loadScreen(): Screen {
   // 메시지 푸시 알림을 눌러 열었으면 그 대화로 (/?dm=대화 id — public/push-sw.js)
   const dm = new URLSearchParams(window.location.search).get('dm')
@@ -85,21 +116,32 @@ export default function App() {
   const pagesMenuRef = useRef<HTMLDivElement>(null)
   const accountMenuRef = useRef<HTMLDivElement>(null)
   const [user, setUser] = useState<SessionUser | null>(loadSession)
-  const [input, setInput] = useState<TripInput>(initialInput)
-  const [phase, setPhase] = useState<'input' | 'result'>('input')
-  const [wizardStart, setWizardStart] = useState<'country' | 'places' | 'time'>('country')
-  // 값이 바뀌면 입력 단계를 새로 그려 startAt 단계부터 다시 보여 줌 (로고 → 국가 선택)
-  const [wizardKey, setWizardKey] = useState(0)
+  const [draft] = useState(loadDraft)
+  const [input, setInput] = useState<TripInput>(draft?.input ?? initialInput)
+  const [phase, setPhase] = useState<'input' | 'result'>(draft?.phase ?? 'input')
+  // 일정 만들기 단계 (0 국가 · 1 장소 · 2 숙소 · 3 시간)
+  const [wizardStep, setWizardStep] = useState(draft?.step ?? 0)
+  // 만들던 도중 로고로 첫 화면에 왔을 때, [진행중인 과정으로...]로 돌아갈 자리
+  const [resumeTo, setResumeTo] = useState<{ phase: 'input' | 'result'; step: number } | null>(null)
   // 사용자가 ▲▼로 바꾼 방문 순서. null이면 앱이 정한 최적 순서
-  const [customOrder, setCustomOrder] = useState<string[] | null>(null)
+  const [customOrder, setCustomOrder] = useState<string[] | null>(draft?.customOrder ?? null)
   // 식사 시간에 고른 음식점
-  const [mealChoices, setMealChoices] = useState<MealChoices>({})
+  const [mealChoices, setMealChoices] = useState<MealChoices>(draft?.mealChoices ?? {})
   // 고른 음식점을 끌어서 옮긴 자리 (없으면 식사 시간대에 맞춰 자동)
-  const [mealSlots, setMealSlots] = useState<MealSlots>({})
+  const [mealSlots, setMealSlots] = useState<MealSlots>(draft?.mealSlots ?? {})
 
   const { trips, setTrips, saveFailed } = useTrips(user)
   const bookmarks = useBookmarks(user)
-  const [editing, setEditing] = useState<Editing | null>(null)
+  const [editing, setEditing] = useState<Editing | null>(draft?.editing ?? null)
+
+  useEffect(() => {
+    try {
+      const next: Draft = { input, phase, step: wizardStep, customOrder, mealChoices, mealSlots, editing }
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(next))
+    } catch {
+      // 저장 공간을 못 쓰면 이어 만들기만 안 될 뿐 앱은 그대로
+    }
+  }, [input, phase, wizardStep, customOrder, mealChoices, mealSlots, editing])
   const [saveOpen, setSaveOpen] = useState(false)
   // 방금 저장했으면 결과 화면에 안내를 띄움 (일정을 고치면 사라짐)
   const [justSaved, setJustSaved] = useState(false)
@@ -121,9 +163,43 @@ export default function App() {
     }
   }, [view, myPageSelection, dmOpen])
 
-  // 알림으로 연 주소(?dm=)는 화면에 반영했으니 주소창에서 지움
+  // 화면을 옮길 때마다 브라우저 기록에 남겨 뒤로가기(휴대폰 뒤로 제스처)로 직전 화면에 돌아감.
+  // 같은 화면 안에서 일차만 바꾸는 것은 기록을 늘리지 않고 덮어씀
+  const step = view === 'planner' && phase === 'input' ? wizardStep : null
+  const screen = { view, selection: myPageSelection, dm: dmOpen, phase, step }
+  const screenKey = JSON.stringify([view, myPageSelection?.tripId, myPageSelection?.bookmark, dmOpen, phase, step])
+  const historyKey = useRef<string | null>(null)
   useEffect(() => {
-    if (window.location.search.includes('dm=')) window.history.replaceState(null, '', window.location.pathname)
+    const state = { ...screen, key: screenKey }
+    if (historyKey.current === null) {
+      // 처음: 알림으로 연 주소(?dm=)는 화면에 반영했으니 주소창에서 지움
+      window.history.replaceState(state, '', window.location.pathname)
+    } else if (historyKey.current !== screenKey) {
+      window.history.pushState(state, '')
+    } else {
+      window.history.replaceState(state, '')
+    }
+    historyKey.current = screenKey
+    // screen은 screenKey·dayNumber가 같으면 같은 값
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screenKey, myPageSelection?.dayNumber])
+
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => {
+      const s = e.state as (Screen & { phase?: 'input' | 'result'; step?: number | null; key?: string }) | null
+      if (!s?.view) return
+      // 되돌아간 화면을 기록으로 다시 쌓지 않게 먼저 표시
+      historyKey.current = s.key ?? null
+      setView(s.view)
+      setMyPageSelection(s.selection ?? null)
+      setDmOpen(s.dm ?? null)
+      setDmTrip(null)
+      if (s.phase) setPhase(s.phase)
+      if (typeof s.step === 'number') setWizardStep(s.step)
+      setOpenMenu(null)
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
   }, [])
 
   // 앱이 열려 있을 때 알림을 누르면 서비스 워커가 알려 줌 → 그 대화로
@@ -163,6 +239,8 @@ export default function App() {
 
   function logout() {
     setUser(null)
+    // 이어 만들던 일정의 "n일차 만드는 중"은 그 계정의 여행이라 끊음
+    setEditing(null)
     setDmOpen(null)
     setDmTrip(null)
     // 이 기기로 오던 메시지 알림을 끊은 뒤 로그아웃 (로그인한 동안에만 서버에서 지울 수 있음)
@@ -324,7 +402,7 @@ export default function App() {
     setMealSlots({})
     setEditing(trip ? { tripId: trip.id, dayNumber: nextDayNumber(trip) } : null)
     setJustSaved(false)
-    setWizardStart('places')
+    setWizardStep(1)
     setPhase('input')
     setView('planner')
   }
@@ -355,13 +433,14 @@ export default function App() {
   }
 
   function newPlan() {
+    setResumeTo(null)
     setInput(initialInput)
     setCustomOrder(null)
     setMealChoices({})
     setMealSlots({})
     setEditing(null)
     setJustSaved(false)
-    setWizardStart('country')
+    setWizardStep(0)
     setPhase('input')
     setView('planner')
   }
@@ -391,9 +470,9 @@ export default function App() {
             type="button"
             className="brand"
             onClick={() => {
-              // 국가 선택 화면으로 (입력해 둔 나라·장소·시간은 그대로)
-              setWizardStart('country')
-              setWizardKey((k) => k + 1)
+              // 국가 선택 화면으로 (입력해 둔 나라·장소·시간은 그대로) — 만들던 중이면 돌아갈 자리를 기억
+              if (phase === 'result' || wizardStep > 0) setResumeTo({ phase, step: wizardStep })
+              setWizardStep(0)
               setPhase('input')
               setView('planner')
               setOpenMenu(null)
@@ -422,7 +501,6 @@ export default function App() {
                     : view === 'messages'
                       ? t('메시지')
                       : t('커뮤니티')}
-                {view === 'mypage' && trips.length > 0 && <span className="count">{trips.length}</span>}
                 {/* 안 읽은 메시지 */}
                 {inbox.unread > 0 && (
                   <span className="count unread" aria-label={t('안 읽은 메시지 {n}개', { n: inbox.unread })}>
@@ -643,15 +721,22 @@ export default function App() {
                     type="button"
                     className="btn small"
                     onClick={() => {
-                      setWizardStart('time')
+                      setWizardStep(3)
                       setPhase('input')
                     }}
                   >
                     {t('수정하기')}
                   </button>
-                  <button type="button" className="btn small primary" onClick={() => (user ? setSaveOpen(true) : setLoginNeeded(true))}>
-                    💾 {t('저장')}
-                  </button>
+                  {/* 저장을 마치면 같은 자리에 [메인으로] — 새 일정 시작 화면으로 ("○○ 여행 n일차 만드는 중" 표시 없이) */}
+                  {justSaved ? (
+                    <button type="button" className="btn small primary" onClick={newPlan}>
+                      {t('메인으로')}
+                    </button>
+                  ) : (
+                    <button type="button" className="btn small primary" onClick={() => (user ? setSaveOpen(true) : setLoginNeeded(true))}>
+                      💾 {t('저장')}
+                    </button>
+                  )}
                 </>
               }
               banner={
@@ -726,14 +811,27 @@ export default function App() {
                 </p>
               )}
               <Wizard
-                key={wizardKey}
                 input={input}
-                startAt={wizardStart}
+                step={wizardStep}
+                onStepChange={(next) => {
+                  setResumeTo(null)
+                  setWizardStep(next)
+                }}
+                onResume={
+                  resumeTo && wizardStep === 0
+                    ? () => {
+                        setWizardStep(resumeTo.step)
+                        setPhase(resumeTo.phase)
+                        setResumeTo(null)
+                      }
+                    : undefined
+                }
                 onChange={(next) => {
-                  // 나라를 바꾸면 그 나라에서 고른 식사도 비움
+                  // 나라를 바꾸면 그 나라에서 고른 식사도 비움 (고른 장소도 비워지니 돌아갈 자리도 없음)
                   if (next.countryCode !== input.countryCode) {
                     setMealChoices({})
                     setMealSlots({})
+                    setResumeTo(null)
                   }
                   setInput(next)
                 }}

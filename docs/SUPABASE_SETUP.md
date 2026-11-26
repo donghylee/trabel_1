@@ -36,7 +36,7 @@ Supabase 키를 넣기 전에는 로그인·저장한 여행·커뮤니티가 **
 
 **비밀번호 규칙** (같은 화면 Email 설정 안)
 
-- **Minimum password length: 16**
+- **Minimum password length: 10**
 - **Password Requirements: Letters and digits**
 - 앱은 여기에 더해 특수문자도 검사합니다(`src/lib/auth.ts`의 `isStrongPassword`). Supabase에서 특수문자까지 요구하는 옵션을 고르면 대문자·소문자도 함께 요구하게 됩니다.
 - 이미 가입한 사람은 예전 비밀번호로 계속 로그인할 수 있고, 가입·비밀번호 변경 때만 새 규칙이 적용됩니다.
