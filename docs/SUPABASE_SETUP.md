@@ -34,6 +34,13 @@ Supabase 키를 넣기 전에는 로그인·저장한 여행·커뮤니티가 **
 - **Site URL**: Vercel 배포 주소 (예: `https://planj.vercel.app`)
 - **Redirect URLs**: 위 주소와 `http://localhost:5173` 추가
 
+**비밀번호 규칙** (같은 화면 Email 설정 안)
+
+- **Minimum password length: 16**
+- **Password Requirements: Letters and digits**
+- 앱은 여기에 더해 특수문자도 검사합니다(`src/lib/auth.ts`의 `isStrongPassword`). Supabase에서 특수문자까지 요구하는 옵션을 고르면 대문자·소문자도 함께 요구하게 됩니다.
+- 이미 가입한 사람은 예전 비밀번호로 계속 로그인할 수 있고, 가입·비밀번호 변경 때만 새 규칙이 적용됩니다.
+
 ### 비밀번호 찾기 메일
 
 로그인 화면의 **[비밀번호 찾기]** 는 메일로 보낸 인증번호로 비밀번호를 바꿉니다. 아래 두 가지를 설정해야 메일이 갑니다.

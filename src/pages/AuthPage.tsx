@@ -4,6 +4,7 @@ import { UserIcon } from '../components/UserIcon'
 import {
   DEFAULT_ICON,
   isNicknameTaken,
+  isStrongPassword,
   logIn,
   requestPasswordReset,
   resetPassword,
@@ -210,7 +211,7 @@ function ForgotForm({
 
   async function change() {
     if (!code) return setError(t('인증번호를 입력해 주세요.'))
-    if (password.length < MIN_PASSWORD_LENGTH) return setError(t('PW는 6자 이상으로 입력해 주세요.'))
+    if (!isStrongPassword(password)) return setError(t('PW는 영문·숫자·특수문자를 섞어 16자 이상으로 입력해 주세요.'))
     if (password !== passwordConfirm) return setError(t('PW가 일치하지 않습니다.'))
     setBusy(true)
     const failure = await resetPassword(email, code, password)
@@ -288,7 +289,7 @@ function ForgotForm({
                 className="auth-input"
                 type="password"
                 autoComplete="new-password"
-                placeholder={t('PW (6자 이상)')}
+                placeholder={t('PW (영문·숫자·특수문자 16자 이상)')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -346,8 +347,6 @@ const FIELD_LABELS: Record<Field, string> = {
   passwordConfirm: 'PW 확인',
 }
 const FIELD_ORDER: Field[] = ['email', 'nickname', 'password', 'passwordConfirm']
-/** 서버(Supabase) 기본 규칙과 같게 */
-const MIN_PASSWORD_LENGTH = 6
 
 /** 중복 확인 결과 — 확인한 값과 함께 기억해서, 값을 고치면 다시 확인하게 함 */
 type Check = { value: string; ok: boolean } | null
@@ -403,7 +402,7 @@ function SignupForm({ onCancel, onDone }: { onCancel: () => void; onDone: (email
     if (!nicknameChecked)
       next.nickname =
         nicknameCheck?.value === values.nickname.trim() ? t('이미 사용 중인 닉네임입니다.') : t('닉네임 중복 확인을 해 주세요.')
-    if (values.password.length < MIN_PASSWORD_LENGTH) next.password = t('PW는 6자 이상으로 입력해 주세요.')
+    if (!isStrongPassword(values.password)) next.password = t('PW는 영문·숫자·특수문자를 섞어 16자 이상으로 입력해 주세요.')
     if (values.password !== values.passwordConfirm) next.passwordConfirm = t('PW가 일치하지 않습니다.')
     if (!agreed) next.agree = t('약관에 동의(체크)해야 회원가입이 가능합니다.')
 
@@ -480,8 +479,12 @@ function SignupForm({ onCancel, onDone }: { onCancel: () => void; onDone: (email
 
         <div className="signup-field">
           <label htmlFor="signup-password">PW</label>
-          {input('password', { type: 'password', autoComplete: 'new-password', placeholder: t('PW (6자 이상)') })}
-          {errors.password && <p className="field-error">{errors.password}</p>}
+          {input('password', { type: 'password', autoComplete: 'new-password', placeholder: t('PW (영문·숫자·특수문자 16자 이상)') })}
+          {errors.password ? (
+            <p className="field-error">{errors.password}</p>
+          ) : (
+            <p className="hint">{t('예: travel2026!seoul (영문·숫자·특수문자를 섞어 16자 이상)')}</p>
+          )}
         </div>
 
         <div className="signup-field">

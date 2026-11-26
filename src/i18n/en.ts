@@ -395,9 +395,10 @@ export const en: Record<string, string> = {
   // 이메일 로그인 (Supabase)
   'E-mail을 입력해 주세요.': 'Please enter your e-mail.',
   'E-mail 또는 PW가 올바르지 않습니다.': 'Incorrect e-mail or password.',
-  'PW는 6자 이상으로 입력해 주세요.': 'Password must be at least 6 characters.',
+  'PW는 영문·숫자·특수문자를 섞어 16자 이상으로 입력해 주세요.': 'Use at least 16 characters with letters, numbers and symbols.',
   '로그인할 때 이 E-mail을 씁니다.': 'You\'ll use this e-mail to log in.',
-  'PW (6자 이상)': 'PW (6+ characters)',
+  'PW (영문·숫자·특수문자 16자 이상)': 'PW (16+ letters, numbers, symbols)',
+  '예: travel2026!seoul (영문·숫자·특수문자를 섞어 16자 이상)': 'e.g. travel2026!seoul (16+ characters mixing letters, numbers and symbols)',
   '이미 가입된 E-mail입니다.': 'This e-mail is already registered.',
   '잠시 후 다시 시도해 주세요. (가입 요청이 너무 많습니다)': 'Please try again later. (Too many sign-up requests)',
   '회원가입에 실패했습니다. 잠시 후 다시 시도해 주세요.': 'Sign-up failed. Please try again later.',
