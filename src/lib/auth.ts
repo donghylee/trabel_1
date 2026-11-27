@@ -85,6 +85,37 @@ export async function isNicknameTaken(nickname: string, exceptId?: string): Prom
   return loadUsers().some((u) => same(u.nickname, value) && u.id !== exceptId)
 }
 
+/** 한 번 확인한 닉네임(소문자) → 가입한 회원인지. 같은 이름은 다시 묻지 않음 */
+const memberCache = new Map<string, Promise<boolean>>()
+
+/** 이 닉네임들 중 가입한 회원인 것 (소문자, 대소문자 무시). 실패하면 null */
+async function lookupMembers(names: string[]): Promise<Set<string> | null> {
+  if (!supabase) return new Set(loadUsers().map((u) => u.nickname.trim().toLowerCase()).filter((n) => names.includes(n)))
+  // 와일드카드 없는 ILIKE 여러 개 — 배열 값은 따옴표로 감싸 쉼표·괄호가 든 닉네임도 그대로
+  const patterns = names.map((n) => `"${escapeLike(n).replace(/["\\]/g, (c) => `\\${c}`)}"`)
+  const { data, error } = await supabase.from('profiles').select('nickname').ilikeAnyOf('nickname', patterns)
+  return error || !data ? null : new Set(data.map((p: { nickname: string }) => p.nickname.trim().toLowerCase()))
+}
+
+/** 글 속 @닉네임 중 가입한 회원 (소문자). 확인하지 못한 이름은 회원이 아닌 것으로 (다음에 다시 확인) */
+export async function findMembers(nicknames: string[]): Promise<Set<string>> {
+  const names = [...new Set(nicknames.map((n) => n.trim().toLowerCase()).filter(Boolean))]
+  const missing = names.filter((n) => !memberCache.has(n))
+  if (missing.length) {
+    const found = lookupMembers(missing)
+    for (const n of missing)
+      memberCache.set(
+        n,
+        found.then((set) => {
+          if (!set) memberCache.delete(n)
+          return !!set?.has(n)
+        }),
+      )
+  }
+  const checked = await Promise.all(names.map(async (n) => [n, await memberCache.get(n)] as const))
+  return new Set(checked.filter(([, ok]) => ok).map(([n]) => n))
+}
+
 /** 메시지 받을 사람 찾기 — 닉네임에 글자가 들어간 사람 (나는 빼고, 최대 10명). 못 찾거나 실패하면 빈 목록 */
 export async function searchUsers(text: string, exceptId: string): Promise<DmUser[]> {
   const value = text.trim()

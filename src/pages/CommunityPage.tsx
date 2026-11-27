@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { findCountry, tripTitle } from '../data/catalog'
 import { getMockFeed } from '../data/mockFeed'
 import { t } from '../i18n'
-import type { SessionUser } from '../lib/auth'
+import { findMembers, type SessionUser } from '../lib/auth'
 import { askConfirm } from '../lib/confirm'
 import { usePosts } from '../hooks/usePosts'
 import {
@@ -62,6 +62,8 @@ export default function CommunityPage({
   // 고른 사람 (@닉네임) — 검색·글쓴이 닉네임·글 속 @닉네임을 눌러서. 태그와 동시에 고르지는 않음
   const [person, setPerson] = useState<string | null>(null)
   const [tagText, setTagText] = useState('')
+  // "@닉네임"으로 찾았는데 가입한 회원이 아니면 안내
+  const [searchNotice, setSearchNotice] = useState<string | null>(null)
   // 태그 검색 칸·많이 쓰인 태그는 [검색]을 눌렀을 때만
   const [searchOpen, setSearchOpen] = useState(false)
   const feed = usePosts(user, false, tag, person)
@@ -115,10 +117,15 @@ export default function CommunityPage({
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  function searchTag(e: FormEvent) {
+  async function searchTag(e: FormEvent) {
     e.preventDefault()
     const nickname = parseMention(tagText)
-    if (nickname) return choosePerson(nickname)
+    if (nickname) {
+      // @는 가입한 회원에게만
+      if ((await findMembers([nickname])).has(nickname.toLowerCase())) choosePerson(nickname)
+      else setSearchNotice(t('@{name}은(는) 가입한 회원이 아니에요.', { name: nickname }))
+      return
+    }
     const [first] = parseTags(tagText)
     if (first) chooseTag(first)
   }
@@ -204,7 +211,10 @@ export default function CommunityPage({
                 type="search"
                 placeholder={t('#태그 또는 @닉네임 검색')}
                 value={tagText}
-                onChange={(e) => setTagText(e.target.value)}
+                onChange={(e) => {
+                  setTagText(e.target.value)
+                  setSearchNotice(null)
+                }}
                 aria-label={t('태그·닉네임 검색')}
                 enterKeyHint="search"
                 autoFocus
@@ -213,6 +223,7 @@ export default function CommunityPage({
                 {t('검색')}
               </button>
             </form>
+            {searchNotice && <p className="hint">{searchNotice}</p>}
             {popular.length > 0 && (
               <div className="chips tag-chips" aria-label={t('많이 쓰인 태그')}>
                 {popular.map((name) => (
@@ -567,10 +578,24 @@ function TaggedText({
     const [head, rest] = mention ? [mention[1], mention[2]] : ['', word]
     return [head, ...rest.split(/(#[^\s#,]+)/)].filter(Boolean)
   })
+  // @닉네임은 가입한 회원일 때만 표시 (아니면 그냥 글자)
+  const mentions = parts.filter((part) => MENTION.test(part)).map((part) => part.slice(1))
+  const mentionKey = mentions.join(' ')
+  const [members, setMembers] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    if (!mentionKey) return
+    let cancelled = false
+    // 닉네임 조각에는 공백이 없어서 공백으로 이어 붙였다가 다시 나눔
+    findMembers(mentionKey.split(' ')).then((found) => !cancelled && setMembers(found))
+    return () => {
+      cancelled = true
+    }
+  }, [mentionKey])
   return (
     <>
       {parts.map((part, i) => {
-        const action = TAG.test(part) ? onTag : MENTION.test(part) ? onPerson : null
+        const member = MENTION.test(part) && members.has(part.slice(1).toLowerCase())
+        const action = TAG.test(part) ? onTag : member ? onPerson : null
         if (action === null) return part
         return action ? (
           <button key={i} type="button" className="post-tag" onClick={() => action(part.slice(1))}>
