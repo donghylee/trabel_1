@@ -17,12 +17,6 @@ export const TabIcons = {
       <path d="M19 12H5M11 6l-6 6 6 6" />
     </svg>
   ),
-  // 메시지 입력 중 키패드 숨기기 ⌄
-  down: (
-    <svg {...svgProps} strokeWidth={2.4}>
-      <path d="M6 9l6 6 6-6" />
-    </svg>
-  ),
   // 커뮤니티 사진 넘기기 ‹ ›
   prev: (
     <svg {...svgProps} strokeWidth={2.4}>

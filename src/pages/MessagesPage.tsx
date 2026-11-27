@@ -140,7 +140,7 @@ function Conversation({
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  // 입력칸에 커서가 있으면(휴대폰은 키패드가 올라온 상태) [⌄ 키패드 숨기기] 버튼을 보여 줌
+  // 입력칸에 커서가 있는지(휴대폰은 키패드가 올라온 상태) — 보낸 뒤 그대로 이어 쓰게
   const [typing, setTyping] = useState(false)
   const chatRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -430,18 +430,6 @@ function Conversation({
           onFocus={() => setTyping(true)}
           onBlur={() => setTyping(false)}
         />
-        {typing && (
-          <button
-            type="button"
-            className="icon-btn dm-round-btn"
-            aria-label={t('키패드 숨기기')}
-            // 누르는 순간 입력칸에서 커서가 빠져 버튼이 사라지기 전에 click이 오도록
-            onPointerDown={(e) => e.preventDefault()}
-            onClick={() => inputRef.current?.blur()}
-          >
-            {TabIcons.down}
-          </button>
-        )}
         <button
           type="submit"
           className="btn primary"

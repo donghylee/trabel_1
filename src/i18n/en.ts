@@ -511,7 +511,6 @@ export const en: Record<string, string> = {
   '탈퇴하면 저장한 여행, 올린 글·사진, 댓글, 좋아요, 북마크, 메시지가 모두 지워지고 되돌릴 수 없어요.':
     "Deleting your account removes your saved trips, posts and photos, comments, likes, bookmarks and messages. This can't be undone.",
   '회원 탈퇴가 완료되었습니다. 그동안 이용해 주셔서 감사합니다.': 'Your account has been deleted. Thank you for using PLAN:J.',
-  '키패드 숨기기': 'Hide keyboard',
   '여행 일정 알림': 'Trip schedule alerts',
   '여행 시작일을 넣은 일정의 방문·식사 10분 전에 알려 드려요.': 'Get an alert 10 minutes before each stop and meal on trips with a start date.',
   '좋아요·댓글 알림': 'Like & comment alerts',
