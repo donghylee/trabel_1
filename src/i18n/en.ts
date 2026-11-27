@@ -482,6 +482,7 @@ export const en: Record<string, string> = {
   '날짜를 넣으면 일정마다 10분 전에 알림을 보내 드려요. (계정 설정에서 알림을 켠 기기)':
     'Add a date to get an alert 10 minutes before each stop (on devices with alerts turned on in Account settings).',
   '알림 설정': 'Notifications',
+  '키패드 숨기기': 'Hide keyboard',
   '여행 일정 알림': 'Trip schedule alerts',
   '여행 시작일을 넣은 일정의 방문·식사 10분 전에 알려 드려요.': 'Get an alert 10 minutes before each stop and meal on trips with a start date.',
   '좋아요·댓글 알림': 'Like & comment alerts',

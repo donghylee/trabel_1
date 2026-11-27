@@ -139,6 +139,9 @@ function Conversation({
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  // 입력칸에 커서가 있으면(휴대폰은 키패드가 올라온 상태) [⌄ 키패드 숨기기] 버튼을 보여 줌
+  const [typing, setTyping] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
 
   // 대화 불러오기 + 새 메시지가 오면 다시 (열어 둔 동안은 읽음으로)
@@ -217,6 +220,8 @@ function Conversation({
     setDraft('')
     setPhotos([])
     setTrip(null)
+    // 이어서 쓸 수 있게 입력칸(키패드)을 그대로 — 입력 중에 보냈을 때만
+    if (typing) inputRef.current?.focus()
     setData((prev) => (prev && !prev.messages.some((m) => m.id === saved.id) ? { ...prev, messages: [...prev.messages, saved] } : prev))
   }
 
@@ -387,13 +392,34 @@ function Conversation({
           />
         </div>
         <input
+          ref={inputRef}
           className="text-input"
           value={draft}
           maxLength={MAX_DM_LENGTH}
           placeholder={t('메시지 입력…')}
+          enterKeyHint="send"
           onChange={(e) => setDraft(e.target.value)}
+          onFocus={() => setTyping(true)}
+          onBlur={() => setTyping(false)}
         />
-        <button type="submit" className="btn primary" disabled={sending || !data || (!draft.trim() && !photos.length && !trip)}>
+        {typing && (
+          <button
+            type="button"
+            className="icon-btn dm-round-btn"
+            aria-label={t('키패드 숨기기')}
+            // 누르는 순간 입력칸에서 커서가 빠져 버튼이 사라지기 전에 click이 오도록
+            onPointerDown={(e) => e.preventDefault()}
+            onClick={() => inputRef.current?.blur()}
+          >
+            {TabIcons.down}
+          </button>
+        )}
+        <button
+          type="submit"
+          className="btn primary"
+          // 보내기를 눌러도 입력칸에서 커서가 빠지지 않게 — 키패드가 내려갔다 다시 올라오지 않음
+          onPointerDown={(e) => e.preventDefault()}
+          disabled={sending || !data || (!draft.trim() && !photos.length && !trip)}>
           {sending ? t('보내는 중…') : t('보내기')}
         </button>
       </form>
