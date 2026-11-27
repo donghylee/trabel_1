@@ -52,6 +52,19 @@ export async function fetchServerPosts(authorId?: string): Promise<FeedPost[] | 
 /** LIKE 검색의 특수 문자(% _ \)를 글자 그대로 찾게 */
 const escapeLike = (text: string) => text.replace(/[\\%_]/g, (c) => `\\${c}`)
 
+/** @닉네임 — 그 사람이 올린 글 전부 (닉네임은 대소문자 무시, 정확히 같은 사람만). 그런 사람이 없으면 빈 목록, 실패하면 null */
+export async function fetchPostsByNickname(nickname: string): Promise<FeedPost[] | null> {
+  if (!supabase) return null
+  // 와일드카드 없는 ILIKE = 대소문자만 무시한 같은 글자 (닉네임은 대소문자 무시로 겹치지 않음 — schema.sql)
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id')
+    .ilike('nickname', escapeLike(nickname))
+    .maybeSingle<{ id: string }>()
+  if (error) return null
+  return data ? fetchServerPosts(data.id) : []
+}
+
 /** 그 태그가 달린 글 + 댓글에 #그태그를 쓴 글 (새 글이 앞, 최근 글 목록 밖의 예전 글까지). 실패하면 null */
 export async function fetchTaggedPosts(tag: string): Promise<FeedPost[] | null> {
   if (!supabase) return null
@@ -135,6 +148,12 @@ export const MAX_TAG_LENGTH = 20
 export function parseTags(text: string): string[] {
   const tags = text.split(/[\s,#]+/).map((t) => [...t.trim()].slice(0, MAX_TAG_LENGTH).join(''))
   return [...new Set(tags.filter(Boolean))].slice(0, MAX_TAGS)
+}
+
+/** "@닉네임" 검색어 → 닉네임 (띄어쓰기가 있는 닉네임도 그대로). @로 시작하지 않으면 null */
+export function parseMention(text: string): string | null {
+  const trimmed = text.trim()
+  return trimmed.startsWith('@') ? trimmed.slice(1).trim() || null : null
 }
 
 /** 글 속 해시태그 (댓글 "여기 #맛집 #야경 좋아요" → ['맛집', '야경']) — 글의 태그 칸과 같은 구분(공백·쉼표·#) */

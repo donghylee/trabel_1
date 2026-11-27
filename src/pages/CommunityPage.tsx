@@ -13,7 +13,7 @@ import {
   localComments,
   setLiked as saveLiked,
 } from '../lib/reactions'
-import { parseTags, popularTags, textTags } from '../lib/posts'
+import { parseMention, parseTags, popularTags, textTags } from '../lib/posts'
 import { serverEnabled } from '../services/supabase'
 import { renderTripImage } from '../lib/shareImage'
 import { useSwipe } from '../hooks/useSwipe'
@@ -59,10 +59,12 @@ export default function CommunityPage({
   const [sharing, setSharing] = useState<SavedTrip | null>(null)
   // 고른 태그 (#도쿄) — 태그 검색·많이 쓰인 태그·글의 태그를 눌러서
   const [tag, setTag] = useState<string | null>(null)
+  // 고른 사람 (@닉네임) — 검색·글쓴이 닉네임·글 속 @닉네임을 눌러서. 태그와 동시에 고르지는 않음
+  const [person, setPerson] = useState<string | null>(null)
   const [tagText, setTagText] = useState('')
   // 태그 검색 칸·많이 쓰인 태그는 [검색]을 눌렀을 때만
   const [searchOpen, setSearchOpen] = useState(false)
-  const feed = usePosts(user, false, tag)
+  const feed = usePosts(user, false, tag, person)
   const [writeFor] = useState(() => writeTrip ?? undefined)
   const [writing, setWriting] = useState(() => !!writeTrip && !!user)
   useEffect(() => {
@@ -86,23 +88,37 @@ export default function CommunityPage({
   const countries = [...new Set(allPosts.map((p) => p.trip.countryCode))]
   const popular = popularTags(allPosts)
   // 태그를 고르면 서버가 찾아 준 글(최근 50개 밖의 예전 글까지). 예시 게시물·서버 없음이면 지금 목록에서 거름
-  const taggedFromServer = tag && !showingSamples ? feed.tagged : null
-  const tagLoading = !!tag && serverEnabled && !showingSamples && feed.tagged === null
+  const picked = !!(tag || person)
+  const taggedFromServer = picked && !showingSamples ? feed.tagged : null
+  const tagLoading = picked && serverEnabled && !showingSamples && feed.tagged === null
   // 서버가 찾아 준 글은 이미 태그로 걸러져 있음 — 그 밖(예시·서버 없음)은 글의 태그와 댓글 속 #태그로 거름
   const hasTag = (p: FeedPost, name: string) =>
     p.tags.includes(name) || [...p.comments, ...localComments(p.id)].some((c) => textTags(c.text).includes(name))
   const posts = (taggedFromServer ?? allPosts).filter(
-    (p) => (!filter || p.trip.countryCode === filter) && (!tag || !!taggedFromServer || hasTag(p, tag)),
+    (p) =>
+      (!filter || p.trip.countryCode === filter) &&
+      (!!taggedFromServer ||
+        ((!tag || hasTag(p, tag)) && (!person || p.author.nickname.toLowerCase() === person.toLowerCase()))),
   )
 
   function chooseTag(next: string | null) {
     setTag(next)
+    setPerson(null)
+    setTagText('')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function choosePerson(nickname: string) {
+    setPerson(nickname)
+    setTag(null)
     setTagText('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   function searchTag(e: FormEvent) {
     e.preventDefault()
+    const nickname = parseMention(tagText)
+    if (nickname) return choosePerson(nickname)
     const [first] = parseTags(tagText)
     if (first) chooseTag(first)
   }
@@ -133,6 +149,7 @@ export default function CommunityPage({
     setWriting(false)
     setFilter(null)
     setTag(null)
+    setPerson(null)
     setNotice({ ok: true, text: t('커뮤니티에 글을 올렸습니다.') })
     return null
   }
@@ -185,14 +202,14 @@ export default function CommunityPage({
               <input
                 className="text-input"
                 type="search"
-                placeholder={t('#태그 검색 (예: 맛집)')}
+                placeholder={t('#태그 또는 @닉네임 검색')}
                 value={tagText}
                 onChange={(e) => setTagText(e.target.value)}
-                aria-label={t('태그 검색')}
+                aria-label={t('태그·닉네임 검색')}
                 enterKeyHint="search"
                 autoFocus
               />
-              <button type="submit" className="btn small" disabled={!parseTags(tagText).length}>
+              <button type="submit" className="btn small" disabled={!parseMention(tagText) && !parseTags(tagText).length}>
                 {t('검색')}
               </button>
             </form>
@@ -212,6 +229,14 @@ export default function CommunityPage({
               </div>
             )}
           </div>
+        )}
+        {person && (
+          <p className="tag-active">
+            <strong>@{person}</strong> {t('님의 글')}
+            <button type="button" className="link-btn" onClick={() => chooseTag(null)}>
+              {t('✕ 전체 보기')}
+            </button>
+          </p>
         )}
         {tag && (
           <p className="tag-active">
@@ -244,6 +269,9 @@ export default function CommunityPage({
       {tag && !feed.loading && !tagLoading && posts.length === 0 && (
         <p className="hint">{t('#{tag} 태그가 달린 글이 없어요.', { tag })}</p>
       )}
+      {person && !feed.loading && !tagLoading && posts.length === 0 && (
+        <p className="hint">{t('@{name}님이 올린 글이 없어요.', { name: person })}</p>
+      )}
       {feed.loadFailed && <p className="notice error-notice">{t('글을 불러오지 못했습니다. 새로고침해 주세요.')}</p>}
       {posts.map((post) => (
         <PostCard
@@ -255,6 +283,7 @@ export default function CommunityPage({
           onRequireLogin={onRequireLogin}
           onShare={setSharing}
           onTag={chooseTag}
+          onPerson={choosePerson}
           onMessage={
             post.author.id && post.author.id !== user?.id
               ? () => onMessage({ id: post.author.id!, nickname: post.author.nickname, icon: post.author.icon })
@@ -519,25 +548,40 @@ const Icon = {
   ),
 }
 
-/** 글 속 #태그를 누를 수 있게 (onTag가 없으면 색만 다르게) */
-function TaggedText({ text, onTag }: { text: string; onTag?: (tag: string) => void }) {
-  // split에 괄호를 두면 #태그 조각도 남음 → 홀수 자리가 태그
-  const parts = text.split(/(#[^\s#,]+)/)
+const TAG = /^#[^\s#,]+$/
+const MENTION = /^@[^\s@#,]+$/
+
+/** 글 속 #태그와 @닉네임을 누를 수 있게 (누를 곳이 없으면 색만 다르게) */
+function TaggedText({
+  text,
+  onTag,
+  onPerson,
+}: {
+  text: string
+  onTag?: (tag: string) => void
+  onPerson?: (nickname: string) => void
+}) {
+  // 공백으로 나눈 조각마다: @닉네임은 조각 맨 앞에서만(메일 주소 a@b.com은 그대로), #태그는 어디서든
+  const parts = text.split(/(\s+)/).flatMap((word) => {
+    const mention = /^(@[^\s@#,]+)(.*)$/.exec(word)
+    const [head, rest] = mention ? [mention[1], mention[2]] : ['', word]
+    return [head, ...rest.split(/(#[^\s#,]+)/)].filter(Boolean)
+  })
   return (
     <>
-      {parts.map((part, i) =>
-        i % 2 === 0 ? (
-          part
-        ) : onTag ? (
-          <button key={i} type="button" className="post-tag" onClick={() => onTag(part.slice(1))}>
+      {parts.map((part, i) => {
+        const action = TAG.test(part) ? onTag : MENTION.test(part) ? onPerson : null
+        if (action === null) return part
+        return action ? (
+          <button key={i} type="button" className="post-tag" onClick={() => action(part.slice(1))}>
             {part}
           </button>
         ) : (
           <span key={i} className="post-tag">
             {part}
           </span>
-        ),
-      )}
+        )
+      })}
     </>
   )
 }
@@ -551,6 +595,7 @@ export function PostCard({
   onRequireLogin,
   onShare,
   onTag,
+  onPerson,
   onMessage,
   onDelete,
 }: {
@@ -563,6 +608,8 @@ export function PostCard({
   onShare: (trip: SavedTrip) => void
   /** 태그를 누르면 그 태그가 달린 글만 보기 (커뮤니티에서만 — 없으면 태그는 글자로만) */
   onTag?: (tag: string) => void
+  /** 닉네임(글쓴이·글 속 @닉네임)을 누르면 그 사람이 올린 글만 보기 (커뮤니티에서만) */
+  onPerson?: (nickname: string) => void
   /** 다른 사람 글일 때만 (예시 게시물은 계정이 없어서 없음) */
   onMessage?: () => void
   /** 내가 쓴 글일 때만 */
@@ -654,7 +701,13 @@ export function PostCard({
       <header className="post-head">
         <UserIcon icon={post.author.icon} size="medium" />
         <div className="post-author">
-          <strong>{post.author.nickname}</strong>
+          {onPerson ? (
+            <button type="button" className="post-author-name" onClick={() => onPerson(post.author.nickname)}>
+              {post.author.nickname}
+            </button>
+          ) : (
+            <strong>{post.author.nickname}</strong>
+          )}
           <span className="hint">
             {country?.name ?? post.trip.countryCode} · {t('{n}일 일정', { n: post.trip.days.length })}
           </span>
@@ -723,7 +776,8 @@ export function PostCard({
       <div className="post-body">
         <strong>{t('좋아요 {n}개', { n: (othersLikes + (liked ? 1 : 0)).toLocaleString() })}</strong>
         <p className="post-caption">
-          <strong>{post.author.nickname}</strong> <span className="post-trip-name">[{tripTitle(post.trip)}]</span> {post.caption}
+          <strong>{post.author.nickname}</strong> <span className="post-trip-name">[{tripTitle(post.trip)}]</span>{' '}
+          <TaggedText text={post.caption} onTag={onTag} onPerson={onPerson} />
         </p>
         {post.tags.length > 0 && (
           <p className="post-tags">
@@ -751,7 +805,7 @@ export function PostCard({
             {visibleComments.map((c) => (
               <li key={c.id} className="post-comment">
                 <span>
-                  <strong>{c.author.nickname}</strong> <TaggedText text={c.text} onTag={onTag} />{' '}
+                  <strong>{c.author.nickname}</strong> <TaggedText text={c.text} onTag={onTag} onPerson={onPerson} />{' '}
                   <span className="hint">{timeAgo(c.postedAt)}</span>
                 </span>
                 {/* 내가 쓴 댓글에만 [⋯] → 삭제 */}

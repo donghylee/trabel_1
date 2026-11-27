@@ -1689,3 +1689,5 @@ span.post-tag { color: inherit; }
 .write-video { position: relative; width: 100%; max-width: 280px; border-radius: 10px; overflow: hidden; background: #000; }
 .write-video video { width: 100%; max-height: 240px; display: block; }
 .write-video-add { width: auto; padding: 0 16px; }
+.post-author-name { border: none; background: none; padding: 0; font: inherit; font-weight: 700; color: inherit; cursor: pointer; text-align: left; }
+.post-author-name:hover { text-decoration: underline; }

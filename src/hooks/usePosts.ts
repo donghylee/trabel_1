@@ -1,7 +1,15 @@
 import { useEffect, useState } from 'react'
 import type { SessionUser } from '../lib/auth'
 import { deletePhotos, uploadFile, uploadPhotos } from '../lib/photos'
-import { deleteServerPost, fetchServerPosts, fetchTaggedPosts, insertServerPost, loadPosts, savePosts } from '../lib/posts'
+import {
+  deleteServerPost,
+  fetchPostsByNickname,
+  fetchServerPosts,
+  fetchTaggedPosts,
+  insertServerPost,
+  loadPosts,
+  savePosts,
+} from '../lib/posts'
 import { serverEnabled } from '../services/supabase'
 import type { FeedPost } from '../types'
 
@@ -12,9 +20,9 @@ type NewPost = Omit<FeedPost, 'id' | 'postedAt' | 'author' | 'likeCount' | 'comm
  * 서버가 있으면 모두의 글을 받아 오고, 없으면 이 브라우저에서 올린 글만.
  * publish·remove는 실패하면 안내 문구를 돌려줌 (성공이면 null).
  * mine이면 로그인한 사람이 올린 글만 (마이페이지).
- * tag를 주면 서버에서 그 태그가 달린 글을 따로 받아 tagged로 (서버가 없으면 tagged는 늘 null — 화면에서 거름).
+ * tag(#태그)나 nickname(@닉네임)을 주면 서버에서 그 글을 따로 받아 tagged로 (서버가 없으면 tagged는 늘 null — 화면에서 거름).
  */
-export function usePosts(user: SessionUser | null, mine = false, tag: string | null = null) {
+export function usePosts(user: SessionUser | null, mine = false, tag: string | null = null, nickname: string | null = null) {
   const authorId = mine ? (user?.id ?? null) : undefined
   const [posts, setPosts] = useState<FeedPost[]>(() =>
     serverEnabled ? [] : loadPosts().filter((p) => authorId === undefined || p.author.id === authorId),
@@ -26,15 +34,16 @@ export function usePosts(user: SessionUser | null, mine = false, tag: string | n
 
   useEffect(() => {
     setTagged(null)
-    if (!serverEnabled || !tag) return
+    if (!serverEnabled || (!tag && !nickname)) return
     let cancelled = false
-    fetchTaggedPosts(tag).then((list) => {
+    const load = nickname ? fetchPostsByNickname(nickname) : fetchTaggedPosts(tag!)
+    load.then((list) => {
       if (!cancelled) setTagged(list ?? [])
     })
     return () => {
       cancelled = true
     }
-  }, [tag])
+  }, [tag, nickname])
 
   useEffect(() => {
     if (!serverEnabled) return
