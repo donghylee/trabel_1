@@ -5,12 +5,14 @@ import { t } from '../i18n'
 import type { SessionUser } from '../lib/auth'
 import { askConfirm } from '../lib/confirm'
 import { resizeImage } from '../lib/image'
+import { MAX_VIDEO_MB } from '../lib/photos'
 import {
   deleteMessage,
   fetchConversation,
   hideConversation,
   markRead,
   MAX_DM_LENGTH,
+  isDmVideo,
   MAX_DM_PHOTOS,
   photoUrls,
   previewOf,
@@ -21,6 +23,7 @@ import { timeAgo } from '../lib/time'
 import type { DmMessage, DmUser, SavedTrip } from '../types'
 import { TabIcons } from '../components/TabIcons'
 import { UserIcon } from '../components/UserIcon'
+import { serverEnabled } from '../services/supabase'
 
 type Props = {
   user: SessionUser | null
@@ -133,6 +136,13 @@ function Conversation({
   const [urls, setUrls] = useState<Record<string, string>>({})
   const [draft, setDraft] = useState('')
   const [photos, setPhotos] = useState<string[]>([])
+  // 보낼 영상 1개 (서버를 쓸 때만) — url은 미리보기용 주소, 바뀌거나 화면을 닫으면 풀어 줌
+  const [video, setVideo] = useState<{ file: File; url: string } | null>(null)
+  useEffect(() => {
+    if (!video) return
+    const url = video.url
+    return () => URL.revokeObjectURL(url)
+  }, [video])
   const [trip, setTrip] = useState<SavedTrip | null>(null)
   const [attachOpen, setAttachOpen] = useState(false)
   const [pickingTrip, setPickingTrip] = useState(false)
@@ -221,11 +231,29 @@ function Conversation({
 
   async function addPhotos(files: FileList | null) {
     if (!files) return
-    const room = MAX_DM_PHOTOS - photos.length
-    if (files.length > room) setError(t('사진은 한 번에 {n}장까지 보낼 수 있습니다.', { n: MAX_DM_PHOTOS }))
+    const list = Array.from(files)
+    const videos = serverEnabled ? list.filter((f) => f.type.startsWith('video/')) : []
+    let withVideo = !!video
+    if (videos.length) {
+      if (video || videos.length > 1) setError(t('영상은 한 번에 1개까지 보낼 수 있어요.'))
+      else if (videos[0].size > MAX_VIDEO_MB * 1024 * 1024)
+        setError(t('영상은 {n}MB까지 올릴 수 있어요. 길이를 줄이거나 화질을 낮춰 주세요.', { n: MAX_VIDEO_MB }))
+      else if (photos.length >= MAX_DM_PHOTOS) setError(t('사진과 영상은 합쳐서 {n}개까지 보낼 수 있습니다.', { n: MAX_DM_PHOTOS }))
+      else {
+        setVideo({ file: videos[0], url: URL.createObjectURL(videos[0]) })
+        withVideo = true
+      }
+    }
+    const images = list.filter((f) => f.type.startsWith('image/'))
+    const room = MAX_DM_PHOTOS - photos.length - (withVideo ? 1 : 0)
+    if (images.length > room)
+      setError(
+        withVideo
+          ? t('사진과 영상은 합쳐서 {n}개까지 보낼 수 있습니다.', { n: MAX_DM_PHOTOS })
+          : t('사진은 한 번에 {n}장까지 보낼 수 있습니다.', { n: MAX_DM_PHOTOS }),
+      )
     const added: string[] = []
-    for (const file of Array.from(files).slice(0, room)) {
-      if (!file.type.startsWith('image/')) continue
+    for (const file of images.slice(0, Math.max(room, 0))) {
       try {
         added.push(await resizeImage(file))
       } catch {
@@ -237,10 +265,10 @@ function Conversation({
 
   async function send(e: FormEvent) {
     e.preventDefault()
-    if (sending || (!draft.trim() && !photos.length && !trip)) return
+    if (sending || (!draft.trim() && !photos.length && !video && !trip)) return
     setSending(true)
     setError(null)
-    const saved = await sendMessage(user, conversationId, { body: draft, photos, trip: trip ?? undefined })
+    const saved = await sendMessage(user, conversationId, { body: draft, photos, video: video?.file, trip: trip ?? undefined })
     setSending(false)
     if (!saved) {
       setError(t('메시지를 보내지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.'))
@@ -248,6 +276,7 @@ function Conversation({
     }
     setDraft('')
     setPhotos([])
+    setVideo(null)
     setTrip(null)
     // 이어서 쓸 수 있게 입력칸(키패드)을 그대로 — 입력 중에 보냈을 때만
     if (typing) inputRef.current?.focus()
@@ -300,15 +329,17 @@ function Conversation({
         <ul>
           {data?.messages.map((m) => {
             const mine = m.senderId === user.id
+            const images = m.photos.filter((p) => !isDmVideo(p))
+            const videos = m.photos.filter(isDmVideo)
             return (
               <li key={m.id} className={`dm-msg ${mine ? 'mine' : ''}`}>
                 {m.deleted ? (
                   <p className="dm-bubble deleted">{t('삭제된 메시지입니다.')}</p>
                 ) : (
                   <>
-                    {m.photos.length > 0 && (
-                      <div className={`dm-photos n${Math.min(m.photos.length, 4)}`}>
-                        {m.photos.map((p, i) =>
+                    {images.length > 0 && (
+                      <div className={`dm-photos n${Math.min(images.length, 4)}`}>
+                        {images.map((p, i) =>
                           urls[p] ? (
                             <a key={i} href={urls[p]} target="_blank" rel="noreferrer">
                               <img src={urls[p]} alt={t('보낸 사진')} />
@@ -318,6 +349,13 @@ function Conversation({
                           ),
                         )}
                       </div>
+                    )}
+                    {videos.map((p) =>
+                      urls[p] ? (
+                        <video key={p} className="dm-video" src={urls[p]} controls playsInline preload="metadata" />
+                      ) : (
+                        <span key={p} className="dm-video dm-photo-loading" />
+                      ),
                     )}
                     {m.trip && (
                       <TripCard
@@ -347,7 +385,7 @@ function Conversation({
 
       {error && <p className="notice error-notice">{error}</p>}
 
-      {(photos.length > 0 || trip) && (
+      {(photos.length > 0 || video || trip) && (
         <div className="dm-attachments">
           {photos.map((p, i) => (
             <span key={i} className="dm-attachment photo">
@@ -357,6 +395,14 @@ function Conversation({
               </button>
             </span>
           ))}
+          {video && (
+            <span className="dm-attachment photo">
+              <video src={video.url} muted playsInline preload="metadata" />
+              <button type="button" aria-label={t('영상 빼기')} onClick={() => setVideo(null)}>
+                ×
+              </button>
+            </span>
+          )}
           {trip && (
             <span className="dm-attachment trip">
               🗺️ {tripTitle(trip)}
@@ -390,7 +436,7 @@ function Conversation({
                     fileRef.current?.click()
                   }}
                 >
-                  📷 {t('사진')}
+                  📷 {t(serverEnabled ? '사진·영상' : '사진')}
                 </button>
               </li>
               <li>
@@ -410,7 +456,7 @@ function Conversation({
           <input
             ref={fileRef}
             type="file"
-            accept="image/*"
+            accept={serverEnabled ? 'image/*,video/*' : 'image/*'}
             multiple
             hidden
             onChange={(e) => {
@@ -435,7 +481,7 @@ function Conversation({
           className="btn primary"
           // 보내기를 눌러도 입력칸에서 커서가 빠지지 않게 — 키패드가 내려갔다 다시 올라오지 않음
           onPointerDown={(e) => e.preventDefault()}
-          disabled={sending || !data || (!draft.trim() && !photos.length && !trip)}>
+          disabled={sending || !data || (!draft.trim() && !photos.length && !video && !trip)}>
           {sending ? t('보내는 중…') : t('보내기')}
         </button>
       </form>

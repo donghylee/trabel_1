@@ -58,7 +58,6 @@ export default function Wizard({ input, step, onStepChange: setStep, onResume, o
       <ol className="stepper">
         {steps.map((s, i) => (
           <li key={s.label} className={i === step ? 'active' : i < step ? 'done' : ''}>
-            <span className="stepper-dot">{i < step ? '✓' : i + 1}</span>
             {t(s.label)}
           </li>
         ))}

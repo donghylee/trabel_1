@@ -73,18 +73,28 @@ button, input, select { font: inherit; color: inherit; }
   color: var(--muted);
   padding-bottom: 10px;
   border-bottom: 3px solid var(--border);
+  position: relative;
 }
-.stepper li.active { color: var(--accent); font-weight: 600; border-color: var(--accent); }
-.stepper li.done { color: var(--text); border-color: var(--accent); }
-.stepper-dot {
-  width: 22px; height: 22px; flex-shrink: 0;
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 12px;
-  background: var(--border);
+/* 밑줄: 단계에 오면 왼쪽에서 오른쪽으로 채워짐 (뒤로 가면 다시 비워짐) */
+.stepper li::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 3px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.45s ease;
 }
-.stepper li.active .stepper-dot,
-.stepper li.done .stepper-dot { background: var(--accent); color: #fff; }
+.stepper li.active::after,
+.stepper li.done::after { transform: scaleX(1); }
+.stepper li.active { color: var(--accent); font-weight: 600; }
+.stepper li.done { color: var(--text); }
+@media (prefers-reduced-motion: reduce) {
+  .stepper li::after { transition: none; }
+}
 
 .btn {
   padding: 10px 20px;
@@ -1562,6 +1572,8 @@ div.stop-body > .as-link { width: 100%; }
 .dm-photos a, .dm-photo-loading { display: block; aspect-ratio: 1; background: var(--bg); }
 .dm-photos.n1 a, .dm-photos.n1 .dm-photo-loading { aspect-ratio: auto; min-height: 120px; }
 .dm-photos img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dm-video { display: block; width: 220px; max-height: 360px; border-radius: 12px; background: #000; }
+.dm-video.dm-photo-loading { aspect-ratio: 16 / 9; background: var(--bg); }
 .dm-trip {
   display: flex;
   flex-direction: column;
@@ -1577,7 +1589,8 @@ div.stop-body > .as-link { width: 100%; }
 .dm-trip .btn { margin-top: 6px; }
 .dm-attachments { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 16px 0; border-top: 1px solid var(--border); }
 .dm-attachment { position: relative; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
-.dm-attachment.photo img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; display: block; }
+.dm-attachment.photo img,
+.dm-attachment.photo video { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; display: block; background: #000; }
 .dm-attachment.trip { padding: 6px 28px 6px 10px; border: 1px solid var(--border); border-radius: 999px; }
 .dm-attachment button {
   position: absolute;

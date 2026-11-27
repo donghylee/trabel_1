@@ -9,7 +9,8 @@ import type { SessionUser } from './auth'
 // - 아니면 이 브라우저(localStorage)에 — 같은 브라우저의 다른 계정끼리만 주고받음 (서버 없이 화면을 확인하는 용도)
 // 화면은 이 파일의 함수만 부르므로 어느 쪽이든 똑같이 동작한다.
 
-export type NewDm = { body: string; photos: string[]; trip?: SavedTrip }
+/** video: 영상 파일 1개 (서버를 쓸 때만) — 올린 뒤 경로를 photos에 함께 넣음 (photos는 사진·영상 합쳐 4개까지) */
+export type NewDm = { body: string; photos: string[]; video?: File; trip?: SavedTrip }
 
 export const MAX_DM_PHOTOS = 4
 export const MAX_DM_LENGTH = 2000
@@ -91,6 +92,18 @@ const toMessage = (r: MessageRow): DmMessage => ({
 const PHOTO_BUCKET = 'dm-photos'
 /** 사진을 보여 줄 때 쓰는 잠깐 주소의 유효 시간 */
 const PHOTO_URL_SECONDS = 60 * 60
+
+const VIDEO_EXTS = ['mp4', 'mov', 'm4v', 'webm', '3gp']
+/** photos 안의 경로가 영상인지 (영상은 확장자를 VIDEO_EXTS 중 하나로 올림) */
+export const isDmVideo = (path: string) => VIDEO_EXTS.includes(path.split('.').pop()?.toLowerCase() ?? '')
+
+async function uploadDmVideo(conversationId: string, file: File): Promise<string | null> {
+  if (!supabase) return null
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+  const path = `${conversationId}/${crypto.randomUUID()}.${VIDEO_EXTS.includes(ext) ? ext : 'mp4'}`
+  const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, file, { contentType: file.type || 'video/mp4' })
+  return error ? null : path
+}
 
 async function uploadDmPhotos(conversationId: string, photos: string[]): Promise<string[] | null> {
   if (!supabase) return photos
@@ -214,15 +227,23 @@ export async function fetchConversation(
   return { other: other.user, messages: store.messages.filter((m) => m.conversationId === conversationId).filter(visibleTo(me)) }
 }
 
-/** 메시지 보내기 — 사진(data URL)은 먼저 올림. 실패하면 null */
+/** 메시지 보내기 — 사진(data URL)·영상은 먼저 올림. 실패하면 null */
 export async function sendMessage(user: SessionUser, conversationId: string, message: NewDm): Promise<DmMessage | null> {
   const body = message.body.trim().slice(0, MAX_DM_LENGTH)
-  const photos = message.photos.slice(0, MAX_DM_PHOTOS)
-  if (!body && !photos.length && !message.trip) return null
+  // 영상은 브라우저 저장(localStorage)에 담기엔 너무 커서 서버를 쓸 때만
+  const video = supabase ? message.video : undefined
+  const photos = message.photos.slice(0, MAX_DM_PHOTOS - (video ? 1 : 0))
+  if (!body && !photos.length && !video && !message.trip) return null
   if (supabase) {
     const client = supabase
-    const paths = await uploadDmPhotos(conversationId, photos)
-    if (!paths) return null
+    const photoPaths = await uploadDmPhotos(conversationId, photos)
+    if (!photoPaths) return null
+    const videoPath = video ? await uploadDmVideo(conversationId, video) : null
+    if (video && !videoPath) {
+      if (photoPaths.length) void client.storage.from(PHOTO_BUCKET).remove(photoPaths)
+      return null
+    }
+    const paths = videoPath ? [...photoPaths, videoPath] : photoPaths
     const { data, error } = await client
       .from('dm_messages')
       .insert({ conversation_id: conversationId, sender_id: user.id, body, photos: paths, trip: message.trip ?? null })
