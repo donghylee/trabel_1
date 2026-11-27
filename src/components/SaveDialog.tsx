@@ -18,6 +18,12 @@ type Props = {
 
 const MAX_DAYS = 30
 
+/** 이 기기 기준 오늘 (YYYY-MM-DD) — 새 여행의 시작일 기본값 */
+function today(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export default function SaveDialog({ country, trips, defaultTripId, defaultDayNumber, onCancel, onSave }: Props) {
   const initialTrip = trips.find((trip) => trip.id === defaultTripId) ?? null
   const [mode, setMode] = useState<'new' | 'existing'>(initialTrip ? 'existing' : 'new')
@@ -25,8 +31,9 @@ export default function SaveDialog({ country, trips, defaultTripId, defaultDayNu
   const [tripId, setTripId] = useState(initialTrip?.id ?? trips[0]?.id ?? '')
   const selectedTrip = mode === 'existing' ? trips.find((trip) => trip.id === tripId) : undefined
   const [dayNumber, setDayNumber] = useState(defaultDayNumber ?? nextDayNumber(initialTrip ?? undefined))
-  // 여행 시작일 — 일정 10분 전 알림용 (서버에 저장할 때만 알림이 감)
-  const [startDate, setStartDate] = useState(initialTrip?.startDate ?? '')
+  // 여행 시작일 — 일정 10분 전 알림용 (서버에 저장할 때만 알림이 감).
+  // 새 여행은 오늘로 미리 채움. 저장해 둔 여행은 그 여행의 날짜 그대로 (없으면 비움 — 지난 여행에 오늘이 들어가지 않게)
+  const [startDate, setStartDate] = useState(initialTrip ? (initialTrip.startDate ?? '') : today())
 
   const overwrites = !!selectedTrip?.days.some((d) => d.dayNumber === dayNumber)
   const canSave = mode === 'new' ? name.trim().length > 0 : !!selectedTrip
@@ -42,7 +49,7 @@ export default function SaveDialog({ country, trips, defaultTripId, defaultDayNu
     setMode(next)
     const trip = next === 'new' ? undefined : trips.find((trip) => trip.id === tripId)
     setDayNumber(trip ? nextDayNumber(trip) : 1)
-    setStartDate(trip?.startDate ?? '')
+    setStartDate(trip ? (trip.startDate ?? '') : today())
   }
 
   function submit() {
