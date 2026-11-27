@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import logo from './assets/logo.png'
+import logoDark from './assets/logo-dark.png'
 import AuthPage from './pages/AuthPage'
 import { UserIcon } from './components/UserIcon'
 import CommunityPage from './pages/CommunityPage'
@@ -496,7 +497,8 @@ export default function App() {
               setOpenMenu(null)
             }}
           >
-            <img src={logo} alt={t('PLAN:J 국가 선택으로')} />
+            <img className="logo-light" src={logo} alt={t('PLAN:J 국가 선택으로')} />
+            <img className="logo-dark" src={logoDark} alt={t('PLAN:J 국가 선택으로')} />
           </button>
           <nav className="header-tabs">
             {/* nav-page: 휴대폰에서는 숨기고 하단 탭바로 */}

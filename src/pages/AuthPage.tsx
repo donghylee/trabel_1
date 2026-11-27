@@ -17,6 +17,7 @@ import {
 } from '../lib/auth'
 import { askConfirm } from '../lib/confirm'
 import { serverEnabled } from '../services/supabase'
+import { chooseTheme, themeChoice, type ThemeChoice } from '../lib/theme'
 
 type Props = {
   user: SessionUser | null
@@ -590,12 +591,45 @@ function AccountInfo({
       <IconEditor user={user} pending={pendingIcon} onPendingChange={setPendingIcon} onUserChange={onUserChange} />
       {/* 알림은 서버 함수가 보내므로 서버가 있을 때만 */}
       {serverEnabled && <NotifySettingsPanel user={user} />}
+      <ThemeSettings />
       <DeleteAccount user={user} onDeleted={onDeleted} />
     </section>
   )
 }
 
 /** [회원 탈퇴] → 안내 + PW 다시 입력 → 확인 창 → 계정과 모든 데이터 삭제 */
+/** 화면 모드 — 이 기기에만 기억 (lib/theme) */
+function ThemeSettings() {
+  const [choice, setChoice] = useState<ThemeChoice>(themeChoice)
+  const options: [ThemeChoice, string][] = [
+    ['system', t('기기 설정 따르기')],
+    ['light', t('밝게')],
+    ['dark', t('어둡게')],
+  ]
+  return (
+    <div className="notify-settings theme-settings">
+      <h3 className="notify-title">{t('화면 모드')}</h3>
+      <div className="chips" role="group" aria-label={t('화면 모드')}>
+        {options.map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            className={`chip ${choice === value ? 'active' : ''}`}
+            aria-pressed={choice === value}
+            onClick={() => {
+              chooseTheme(value)
+              setChoice(value)
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <p className="hint">{t('이 기기에서만 바뀌어요. 지도는 밝은 그대로 보여요.')}</p>
+    </div>
+  )
+}
+
 function DeleteAccount({ user, onDeleted }: { user: SessionUser; onDeleted: () => void }) {
   const [open, setOpen] = useState(false)
   const [password, setPassword] = useState('')
