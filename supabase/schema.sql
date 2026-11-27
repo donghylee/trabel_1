@@ -494,3 +494,8 @@ create table if not exists public.notify_log (
   created_at timestamptz not null default now()
 );
 alter table public.notify_log enable row level security;
+
+-- 알림 종류별 켜기/끄기 — 계정 설정 (migrations/006_notify_settings.sql)
+alter table public.profiles add column if not exists notify_trip boolean not null default true; -- 여행 일정 10분 전
+alter table public.profiles add column if not exists notify_post boolean not null default true; -- 내 글 좋아요·댓글
+alter table public.profiles add column if not exists notify_dm boolean not null default true;   -- 메시지(DM)

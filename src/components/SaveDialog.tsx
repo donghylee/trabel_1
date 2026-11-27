@@ -122,7 +122,7 @@ export default function SaveDialog({ country, trips, defaultTripId, defaultDayNu
           <label className="dialog-field">
             <span className="dialog-label">{t('여행 시작일 (1일차 날짜, 선택)')}</span>
             <input className="text-input" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-            <span className="hint">{t('날짜를 넣으면 일정마다 10분 전에 알림을 보내 드려요. (메시지 탭에서 알림을 켠 기기)')}</span>
+            <span className="hint">{t('날짜를 넣으면 일정마다 10분 전에 알림을 보내 드려요. (계정 설정에서 알림을 켠 기기)')}</span>
           </label>
         )}
 

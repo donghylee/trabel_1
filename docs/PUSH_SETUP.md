@@ -118,3 +118,14 @@ select cron.schedule(
 - 여행을 저장하거나 고칠 때마다 그 여행의 일정 알림을 새로 계산해 `trip_reminders`에 넣습니다. 시각은 여행지 시간 기준이고, 나라의 시차로 실제 순간을 계산합니다.
 - pg_cron이 1분마다 함수를 부르면 보낼 때가 된 알림을 보내고 지웁니다. 5분 넘게 늦어진 알림은 보내지 않고 버립니다.
 - 알림 시각은 앱이 계산한 예상 시간이라, 실제 이동이 늦어져도 계획대로 옵니다.
+
+---
+
+# 알림 종류별 켜기/끄기 (계정 설정)
+
+계정 설정 화면에서 **여행 일정 알림 · 좋아요·댓글 알림 · 메시지(DM) 알림**을 각각 켜고 끌 수 있습니다. 이 기기로 알림 받기([이 기기 알림 켜기])도 이 화면으로 옮겼습니다. 메시지 탭에는 더 이상 없습니다.
+
+1. **SQL Editor** → [`supabase/migrations/006_notify_settings.sql`](../supabase/migrations/006_notify_settings.sql)을 붙여 넣고 **Run**. `profiles`에 `notify_trip`, `notify_post`, `notify_dm` 칸이 생기고, 처음에는 모두 켜져 있습니다.
+2. **Edge Functions** → `dm-push`와 `notify-push`를 각각 열어 편집기 내용을 [`dm-push/index.ts`](../supabase/functions/dm-push/index.ts), [`notify-push/index.ts`](../supabase/functions/notify-push/index.ts)의 새 내용으로 바꾸고 **Deploy**. 이름은 바꾸지 말고, `notify-push`의 Verify JWT는 꺼진 그대로 둡니다.
+
+서버 함수는 보내기 전에 받는 사람의 설정을 확인합니다. 끈 종류는 보내지 않습니다. 1단계 SQL을 돌리기 전에는 모두 켜진 것으로 봅니다.

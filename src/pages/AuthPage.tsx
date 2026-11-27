@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { t } from '../i18n'
+import NotifySettingsPanel from '../components/NotifySettingsPanel'
 import { UserIcon } from '../components/UserIcon'
 import {
   DEFAULT_ICON,
@@ -564,6 +565,8 @@ function AccountInfo({ user, onUserChange }: { user: SessionUser; onUserChange: 
       <h2 className="wizard-title">{t('계정 설정')}</h2>
       <NicknameEditor user={user} shownIcon={pendingIcon ?? user.icon} onUserChange={onUserChange} />
       <IconEditor user={user} pending={pendingIcon} onPendingChange={setPendingIcon} onUserChange={onUserChange} />
+      {/* 알림은 서버 함수가 보내므로 서버가 있을 때만 */}
+      {serverEnabled && <NotifySettingsPanel user={user} />}
     </section>
   )
 }

@@ -17,7 +17,6 @@ import {
   sendMessage,
   watchMessages,
 } from '../lib/messages'
-import { disablePush, enablePush, pushStatus, type PushStatus } from '../lib/push'
 import { timeAgo } from '../lib/time'
 import type { DmMessage, DmUser, SavedTrip } from '../types'
 import { TabIcons } from '../components/TabIcons'
@@ -68,7 +67,6 @@ export default function MessagesPage({ user, inbox, trips, openId, onOpen, onLog
   return (
     <div className="wizard dm-page">
       <h2 className="wizard-title">{t('메시지')}</h2>
-      <PushToggle />
       {inbox.loading ? (
         <p className="hint">{t('메시지를 불러오는 중…')}</p>
       ) : inbox.failed && inbox.threads.length === 0 ? (
@@ -107,47 +105,6 @@ export default function MessagesPage({ user, inbox, trips, openId, onOpen, onLog
 }
 
 /** 이 기기로 메시지 알림 받기 켜기·끄기 */
-function PushToggle() {
-  const [status, setStatus] = useState<PushStatus | null>(null)
-  const [busy, setBusy] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    pushStatus().then((s) => {
-      if (!cancelled) setStatus(s)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  if (!status || status === 'unsupported') return null
-  if (status === 'needs-install')
-    return <p className="notice dm-push">{t('🔔 아이폰은 홈 화면에 앱을 설치하면 메시지 알림을 받을 수 있어요. (iOS 16.4 이상)')}</p>
-  if (status === 'denied')
-    return <p className="notice dm-push">{t('🔕 알림이 막혀 있어요. 휴대폰(브라우저) 설정에서 PLAN:J 알림을 허용해 주세요.')}</p>
-
-  async function toggle() {
-    setBusy(true)
-    if (status === 'on') {
-      await disablePush()
-      setStatus(await pushStatus())
-    } else {
-      setStatus(await enablePush())
-    }
-    setBusy(false)
-  }
-
-  return (
-    <div className="notice dm-push">
-      <span>{status === 'on' ? t('🔔 이 기기로 메시지 알림을 받고 있어요.') : t('🔔 앱이 꺼져 있어도 새 메시지를 알림으로 받아 보세요.')}</span>
-      <button type="button" className={`btn small ${status === 'on' ? '' : 'primary'}`} disabled={busy} onClick={toggle}>
-        {status === 'on' ? t('알림 끄기') : t('알림 켜기')}
-      </button>
-    </div>
-  )
-}
-
 /** 오늘이면 시:분, 아니면 월/일 시:분 */
 function messageTime(iso: string): string {
   const d = new Date(iso)

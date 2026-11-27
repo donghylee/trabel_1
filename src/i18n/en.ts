@@ -479,6 +479,20 @@ export const en: Record<string, string> = {
   '여유 +{d}': 'buffer +{d}',
   '{n}분 뒤 일정': 'Up next in {n} min',
   '여행 시작일 (1일차 날짜, 선택)': 'Trip start date (Day 1, optional)',
-  '날짜를 넣으면 일정마다 10분 전에 알림을 보내 드려요. (메시지 탭에서 알림을 켠 기기)':
-    'Add a date to get an alert 10 minutes before each stop (on devices with alerts turned on in Messages).',
+  '날짜를 넣으면 일정마다 10분 전에 알림을 보내 드려요. (계정 설정에서 알림을 켠 기기)':
+    'Add a date to get an alert 10 minutes before each stop (on devices with alerts turned on in Account settings).',
+  '알림 설정': 'Notifications',
+  '여행 일정 알림': 'Trip schedule alerts',
+  '여행 시작일을 넣은 일정의 방문·식사 10분 전에 알려 드려요.': 'Get an alert 10 minutes before each stop and meal on trips with a start date.',
+  '좋아요·댓글 알림': 'Like & comment alerts',
+  '내 글에 좋아요나 댓글이 달리면 알려 드려요.': 'Get an alert when someone likes or comments on your post.',
+  '메시지(DM) 알림': 'Message (DM) alerts',
+  '새 메시지가 오면 알려 드려요.': 'Get an alert when a new message arrives.',
+  '🔔 아이폰은 홈 화면에 앱을 설치하면 알림을 받을 수 있어요. (iOS 16.4 이상)': '🔔 On iPhone, add the app to your Home Screen to get alerts. (iOS 16.4+)',
+  '이 브라우저에서는 알림을 받을 수 없어요.': 'This browser cannot receive alerts.',
+  '🔔 이 기기로 알림을 받고 있어요.': '🔔 This device is receiving alerts.',
+  '🔔 앱이 꺼져 있어도 알림을 받아 보세요.': '🔔 Get alerts even when the app is closed.',
+  '이 기기 알림 끄기': 'Turn off on this device',
+  '이 기기 알림 켜기': 'Turn on for this device',
+  '알림 설정을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.': 'Could not load notification settings. Please try again later.',
 }

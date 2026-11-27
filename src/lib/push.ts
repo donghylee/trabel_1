@@ -2,8 +2,9 @@ import { config } from '../config'
 import { isIos, isStandalone } from '../hooks/useInstallPrompt'
 import { supabase } from '../services/supabase'
 
-// 메시지 푸시 알림 (Web Push). 앱이 꺼져 있어도 폰 알림으로 "OO님이 메시지를 보냈어요".
-// - 이 기기의 구독 정보를 push_subscriptions 테이블에 저장 → 메시지를 보내면 서버 함수(dm-push)가 알림을 보냄
+// 푸시 알림 (Web Push) — 메시지·좋아요·댓글·일정 10분 전. 앱이 꺼져 있어도 폰 알림으로.
+// 이 기기 켜기/끄기와 종류별 켜기/끄기는 계정 설정 화면 (components/NotifySettingsPanel.tsx)
+// - 이 기기의 구독 정보를 push_subscriptions 테이블에 저장 → 서버 함수(dm-push, notify-push)가 알림을 보냄
 // - 알림을 받아 띄우는 곳은 서비스 워커 (public/push-sw.js)
 // - 아이폰은 홈 화면에 설치한 앱(iOS 16.4 이상)에서만 됨
 // 설정 방법: docs/PUSH_SETUP.md
@@ -93,4 +94,25 @@ export async function syncPush(): Promise<void> {
   if (!supported() || Notification.permission !== 'granted') return
   const subscription = await currentSubscription()
   if (subscription) await saveSubscription(subscription)
+}
+
+/** 알림 종류별 켜기/끄기 (계정 설정). 서버 함수가 보내기 전에 확인함 — profiles.notify_* */
+export type NotifySettings = { notify_trip: boolean; notify_post: boolean; notify_dm: boolean }
+
+/** 내 설정. 못 읽으면(설정 칸이 없는 예전 DB 등) null */
+export async function loadNotifySettings(userId: string): Promise<NotifySettings | null> {
+  if (!supabase) return null
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('notify_trip, notify_post, notify_dm')
+    .eq('id', userId)
+    .maybeSingle<NotifySettings>()
+  return error || !data ? null : data
+}
+
+/** 저장에 성공하면 true */
+export async function saveNotifySetting(userId: string, key: keyof NotifySettings, on: boolean): Promise<boolean> {
+  if (!supabase) return false
+  const { error } = await supabase.from('profiles').update({ [key]: on }).eq('id', userId)
+  return !error
 }

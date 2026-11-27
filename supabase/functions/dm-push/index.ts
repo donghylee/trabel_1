@@ -102,7 +102,11 @@ Deno.serve(async (req) => {
     .select('user_id')
     .eq('conversation_id', message.conversation_id)
     .neq('user_id', caller.id)
-  const recipients = (members ?? []).map((m) => m.user_id as string)
+  const memberIds = (members ?? []).map((m) => m.user_id as string)
+  // 계정 설정에서 메시지 알림을 끈 사람은 빼고 (설정 칸이 없는 예전 DB면 모두에게)
+  const { data: settings } = await admin.from('profiles').select('id, notify_dm').in('id', memberIds)
+  const off = new Set((settings ?? []).filter((p) => p.notify_dm === false).map((p) => p.id as string))
+  const recipients = memberIds.filter((id) => !off.has(id))
   if (!recipients.length) return reply({ sent: 0 })
 
   const [{ data: sender }, { data: subscriptions }] = await Promise.all([

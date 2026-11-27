@@ -2,6 +2,7 @@
 //   { kind: 'like', postId }       내 글에 좋아요 → 글쓴이 기기로 (앱이 좋아요를 누른 직후 부름)
 //   { kind: 'comment', commentId } 내 글에 댓글 → 글쓴이 기기로 (앱이 댓글을 단 직후 부름)
 //   { kind: 'reminders' }          보낼 때가 된 일정 10분 전 알림을 보냄 (pg_cron이 1분마다 부름)
+// 받는 사람이 계정 설정에서 끈 종류(profiles.notify_trip / notify_post)는 보내지 않음
 // 배포·설정 방법: docs/PUSH_SETUP.md — 이 함수는 "Verify JWT"를 꺼야 함 (pg_cron은 로그인 없이 부름)
 //
 // 비밀 값은 dm-push와 같은 것을 씀 (Edge Functions → Secrets는 모든 함수가 함께 씀):
@@ -59,6 +60,12 @@ async function claim(admin: SupabaseClient, key: string): Promise<boolean> {
 
 const fresh = (createdAt: string) => Date.now() - new Date(createdAt).getTime() <= MAX_AGE_MS
 
+/** 받는 사람이 계정 설정에서 이 알림을 켜 두었는지 (설정 칸이 없는 예전 DB면 켜진 것으로) */
+async function wants(admin: SupabaseClient, userId: string, setting: 'notify_trip' | 'notify_post'): Promise<boolean> {
+  const { data } = await admin.from('profiles').select(setting).eq('id', userId).maybeSingle<Record<string, boolean>>()
+  return data?.[setting] !== false
+}
+
 async function nickname(admin: SupabaseClient, userId: string): Promise<string> {
   const { data } = await admin.from('profiles').select('nickname').eq('id', userId).maybeSingle<{ nickname: string }>()
   return data?.nickname || '누군가'
@@ -74,6 +81,7 @@ async function sendReminders(admin: SupabaseClient): Promise<number> {
   let sent = 0
   for (const r of due ?? []) {
     if (Date.now() - new Date(r.fire_at).getTime() > REMINDER_LATE_MS) continue
+    if (!(await wants(admin, r.user_id, 'notify_trip'))) continue
     // 같은 여행의 일정 알림은 하나로 겹쳐 보임 (새 알림이 이전 것을 바꿈)
     sent += await sendTo(admin, r.user_id, { title: r.title, body: r.body, url: r.url, tag: `trip-${r.trip_id}` }, 10 * 60)
   }
@@ -150,6 +158,7 @@ Deno.serve(async (req) => {
   const { data: post } = await admin.from('posts').select('author_id').eq('id', postId).maybeSingle<{ author_id: string }>()
   // 내 글에 내가 남긴 건 알리지 않음
   if (!post || post.author_id === caller.id) return reply({ sent: 0 })
+  if (!(await wants(admin, post.author_id, 'notify_post'))) return reply({ sent: 0, reason: 'turned off' })
   if (!(await claim(admin, key))) return reply({ sent: 0, reason: 'already sent' })
 
   const sent = await sendTo(
