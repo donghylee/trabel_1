@@ -142,7 +142,8 @@ function Conversation({
   const inputRef = useRef<HTMLInputElement>(null)
   // 입력칸에 커서가 있으면(휴대폰은 키패드가 올라온 상태) [⌄ 키패드 숨기기] 버튼을 보여 줌
   const [typing, setTyping] = useState(false)
-  const endRef = useRef<HTMLDivElement>(null)
+  const chatRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
   // 대화 불러오기 + 새 메시지가 오면 다시 (열어 둔 동안은 읽음으로)
   useEffect(() => {
@@ -184,11 +185,39 @@ function Conversation({
     }
   }, [messages, urls])
 
-  // 새 메시지가 보이게 맨 아래로
+  // 새 메시지가 보이게 맨 아래로 — 대화 칸 안에서만 (scrollIntoView는 화면 전체를 끌어올려 입력창이 키패드 뒤로 숨음)
   const count = messages?.length ?? 0
+  const scrollToEnd = () => {
+    const list = listRef.current
+    if (list) list.scrollTop = list.scrollHeight
+  }
+  useEffect(scrollToEnd, [count])
+
+  // 키패드가 올라오면 채팅창을 키패드 위 남은 화면(visualViewport)에 맞춤.
+  // 아이폰·안드로이드 크롬 모두 키패드가 화면을 덮기만 하고 페이지 높이는 그대로라 직접 맞춰야 함
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: 'end' })
-  }, [count])
+    const vv = window.visualViewport
+    const chat = chatRef.current
+    if (!vv || !chat) return
+    const fit = () => {
+      const covered = window.innerHeight - vv.height
+      if (covered < 120) {
+        chat.style.height = ''
+        return
+      }
+      window.scrollTo(0, 0)
+      chat.style.height = `${vv.offsetTop + vv.height - chat.getBoundingClientRect().top}px`
+      scrollToEnd()
+    }
+    vv.addEventListener('resize', fit)
+    vv.addEventListener('scroll', fit)
+    fit()
+    return () => {
+      vv.removeEventListener('resize', fit)
+      vv.removeEventListener('scroll', fit)
+      chat.style.height = ''
+    }
+  }, [])
 
   async function addPhotos(files: FileList | null) {
     if (!files) return
@@ -251,7 +280,7 @@ function Conversation({
   const shareable = trips.filter((item) => item.days.length > 0)
 
   return (
-    <div className="wizard dm-page dm-chat">
+    <div ref={chatRef} className="wizard dm-page dm-chat">
       <header className="dm-chat-head">
         <button type="button" className="icon-btn dm-round-btn" onClick={onBack} aria-label={t('메시지 목록으로')}>
           {TabIcons.back}
@@ -263,7 +292,7 @@ function Conversation({
         </button>
       </header>
 
-      <div className="dm-messages">
+      <div ref={listRef} className="dm-messages">
         {failed && !data && <p className="notice error-notice">{t('대화를 불러오지 못했습니다. 새로고침해 주세요.')}</p>}
         {data && data.messages.length === 0 && (
           <p className="hint dm-empty">{t('{name}님에게 첫 메시지를 보내 보세요.', { name: other?.nickname ?? '' })}</p>
@@ -314,7 +343,6 @@ function Conversation({
             )
           })}
         </ul>
-        <div ref={endRef} />
       </div>
 
       {error && <p className="notice error-notice">{error}</p>}
