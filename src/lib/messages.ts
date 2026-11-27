@@ -57,7 +57,9 @@ type InboxRow = {
   other_nickname: string
   other_icon: string | null
   last_body: string
-  last_photo_count: number
+  /** 마지막 메시지의 사진·영상 경로 (009_dm_inbox_media.sql) — 그 전 DB는 개수(last_photo_count)만 줌 */
+  last_photos?: string[]
+  last_photo_count?: number
   last_has_trip: boolean
   last_deleted: boolean
   last_sender: string
@@ -135,7 +137,8 @@ export async function fetchInbox(user: SessionUser): Promise<DmThread[] | null> 
       other: { id: r.other_id, nickname: r.other_nickname, icon: r.other_icon ?? '' },
       last: {
         body: r.last_body,
-        photoCount: r.last_photo_count,
+        // 개수만 아는 예전 DB에서는 모두 사진으로 봄
+        photos: r.last_photos ?? Array<string>(r.last_photo_count ?? 0).fill(''),
         hasTrip: r.last_has_trip,
         deleted: r.last_deleted,
         senderId: r.last_sender,
@@ -159,7 +162,7 @@ export async function fetchInbox(user: SessionUser): Promise<DmThread[] | null> 
           other: other.user,
           last: {
             body: last.body,
-            photoCount: last.photos.length,
+            photos: last.photos,
             hasTrip: !!last.trip,
             deleted: last.deleted,
             senderId: last.senderId,
@@ -355,11 +358,18 @@ export async function photoUrls(paths: string[]): Promise<Record<string, string>
   return Object.fromEntries((data ?? []).flatMap((d) => (d.path && d.signedUrl ? [[d.path, d.signedUrl]] : [])))
 }
 
+/** 사진만 → [사진을 보냈습니다.], 영상만 → [동영상을 보냈습니다.], 섞이면 → [이미지를 보냈습니다.] (supabase/functions/dm-push도 같은 규칙) */
+export function mediaPreview(photos: string[]): string {
+  const videos = photos.filter(isDmVideo).length
+  if (videos === 0) return t('[사진을 보냈습니다.]')
+  return videos === photos.length ? t('[동영상을 보냈습니다.]') : t('[이미지를 보냈습니다.]')
+}
+
 /** 목록·알림에 보일 한 줄 요약 */
-export function previewOf(last: { body: string; photoCount: number; hasTrip: boolean; deleted: boolean }): string {
+export function previewOf(last: { body: string; photos: string[]; hasTrip: boolean; deleted: boolean }): string {
   if (last.deleted) return t('삭제된 메시지입니다.')
   if (last.body) return last.body
   if (last.hasTrip) return t('🗺️ 여행 일정')
-  if (last.photoCount) return t('📷 사진')
+  if (last.photos.length) return mediaPreview(last.photos)
   return ''
 }

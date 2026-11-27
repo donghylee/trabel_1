@@ -247,6 +247,7 @@ export type DmMessage = {
 export type DmThread = {
   id: string
   other: DmUser
-  last: { body: string; photoCount: number; hasTrip: boolean; deleted: boolean; senderId: string; at: string }
+  /** photos: 마지막 메시지의 사진·영상 경로 (미리보기 문구를 고르는 데만 씀) */
+  last: { body: string; photos: string[]; hasTrip: boolean; deleted: boolean; senderId: string; at: string }
   unread: number
 }

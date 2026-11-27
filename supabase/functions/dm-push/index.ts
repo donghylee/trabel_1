@@ -25,6 +25,7 @@ const ALLOWED_ORIGINS = (Deno.env.get('ALLOWED_ORIGINS') ?? '')
 /** 보낸 지 이만큼 지난 메시지는 알림을 보내지 않음 */
 const MAX_AGE_MS = 2 * 60 * 1000
 const PREVIEW_LENGTH = 80
+const VIDEO_EXTS = ['mp4', 'mov', 'm4v', 'webm', '3gp']
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
 
@@ -42,7 +43,12 @@ type Message = {
 function preview(m: Message): string {
   if (m.body) return m.body.length > PREVIEW_LENGTH ? `${m.body.slice(0, PREVIEW_LENGTH)}…` : m.body
   if (m.trip) return '🗺️ 여행 일정을 보냈어요'
-  if (m.photos.length) return '📷 사진을 보냈어요'
+  if (m.photos.length) {
+    // 앱(src/lib/messages.ts mediaPreview)과 같은 규칙 — 영상은 이 확장자로 올라감
+    const videos = m.photos.filter((p) => VIDEO_EXTS.includes(p.split('.').pop()?.toLowerCase() ?? '')).length
+    if (videos === 0) return '[사진을 보냈습니다.]'
+    return videos === m.photos.length ? '[동영상을 보냈습니다.]' : '[이미지를 보냈습니다.]'
+  }
   return '새 메시지'
 }
 

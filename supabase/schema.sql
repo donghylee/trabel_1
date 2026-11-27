@@ -327,14 +327,16 @@ end;
 $$;
 
 -- ── 메시지함 목록: 대화 상대·마지막 메시지·안 읽은 수 (내 대화만) ──
-create or replace function public.dm_inbox()
+-- 마지막 메시지의 사진·영상 경로(last_photos)로 미리보기를 [사진]/[동영상]/[이미지]로 나눔 (009)
+drop function if exists public.dm_inbox();
+create function public.dm_inbox()
 returns table (
   conversation_id uuid,
   other_id uuid,
   other_nickname text,
   other_icon text,
   last_body text,
-  last_photo_count int,
+  last_photos text[],
   last_has_trip boolean,
   last_deleted boolean,
   last_sender uuid,
@@ -349,7 +351,7 @@ as $$
     p.nickname,
     p.icon,
     lm.body,
-    cardinality(lm.photos),
+    lm.photos,
     lm.trip is not null,
     lm.deleted,
     lm.sender_id,
