@@ -4,6 +4,7 @@ import NotifySettingsPanel from '../components/NotifySettingsPanel'
 import { UserIcon } from '../components/UserIcon'
 import {
   DEFAULT_ICON,
+  deleteAccount,
   isNicknameTaken,
   isStrongPassword,
   logIn,
@@ -14,21 +15,35 @@ import {
   updateNickname,
   type SessionUser,
 } from '../lib/auth'
+import { askConfirm } from '../lib/confirm'
 import { serverEnabled } from '../services/supabase'
 
 type Props = {
   user: SessionUser | null
   onLogin: (user: SessionUser) => void
   onUserChange: (user: SessionUser) => void
+  /** 회원 탈퇴가 끝난 뒤 — 로그아웃과 같이 화면 정리 */
+  onAccountDeleted: () => void
 }
 
-export default function AuthPage({ user, onLogin, onUserChange }: Props) {
+export default function AuthPage({ user, onLogin, onUserChange, onAccountDeleted }: Props) {
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login')
   // 가입·비밀번호 변경 직후 로그인 화면에 E-mail을 채우고 안내를 보여 줌
   const [email, setEmail] = useState('')
   const [notice, setNotice] = useState<string | null>(null)
 
-  if (user) return <AccountInfo user={user} onUserChange={onUserChange} />
+  if (user)
+    return (
+      <AccountInfo
+        user={user}
+        onUserChange={onUserChange}
+        onDeleted={() => {
+          setEmail('')
+          setNotice(t('회원 탈퇴가 완료되었습니다. 그동안 이용해 주셔서 감사합니다.'))
+          onAccountDeleted()
+        }}
+      />
+    )
 
   if (mode === 'signup') {
     return (
@@ -557,7 +572,15 @@ type Message = { ok: boolean; text: string } | null
 const SAVE_FAILED = '저장하지 못했습니다. 잠시 후 다시 시도해 주세요.'
 
 /** 로그아웃은 헤더의 닉네임 메뉴에서 */
-function AccountInfo({ user, onUserChange }: { user: SessionUser; onUserChange: (user: SessionUser) => void }) {
+function AccountInfo({
+  user,
+  onUserChange,
+  onDeleted,
+}: {
+  user: SessionUser
+  onUserChange: (user: SessionUser) => void
+  onDeleted: () => void
+}) {
   // 골랐지만 아직 [확인]을 누르지 않은 아이콘 — 위쪽 프로필 아이콘 자리에 바로 보여 줌
   const [pendingIcon, setPendingIcon] = useState<string | null>(null)
   return (
@@ -567,7 +590,86 @@ function AccountInfo({ user, onUserChange }: { user: SessionUser; onUserChange: 
       <IconEditor user={user} pending={pendingIcon} onPendingChange={setPendingIcon} onUserChange={onUserChange} />
       {/* 알림은 서버 함수가 보내므로 서버가 있을 때만 */}
       {serverEnabled && <NotifySettingsPanel user={user} />}
+      <DeleteAccount user={user} onDeleted={onDeleted} />
     </section>
+  )
+}
+
+/** [회원 탈퇴] → 안내 + PW 다시 입력 → 확인 창 → 계정과 모든 데이터 삭제 */
+function DeleteAccount({ user, onDeleted }: { user: SessionUser; onDeleted: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const pwRef = useRef<HTMLInputElement>(null)
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    if (!password) {
+      setError(t('PW를 입력해 주세요.'))
+      pwRef.current?.focus()
+      return
+    }
+    if (!(await askConfirm(t('정말 탈퇴할까요? 지운 계정과 데이터는 되돌릴 수 없어요.'), t('탈퇴하기')))) return
+    setBusy(true)
+    const failed = await deleteAccount(user, password)
+    setBusy(false)
+    if (failed) {
+      setError(failed)
+      pwRef.current?.focus()
+      return
+    }
+    onDeleted()
+  }
+
+  if (!open)
+    return (
+      <div className="delete-account">
+        <button type="button" className="link-btn delete-account-link" onClick={() => setOpen(true)}>
+          {t('회원 탈퇴')}
+        </button>
+      </div>
+    )
+
+  return (
+    <form className="delete-account" onSubmit={submit}>
+      <h3 className="notify-title">{t('회원 탈퇴')}</h3>
+      <p className="notice">
+        {t('탈퇴하면 저장한 여행, 올린 글·사진, 댓글, 좋아요, 북마크, 메시지가 모두 지워지고 되돌릴 수 없어요.')}
+      </p>
+      <input
+        ref={pwRef}
+        className={`auth-input ${error ? 'invalid' : ''}`}
+        type="password"
+        placeholder={t('PW를 다시 입력해 주세요')}
+        autoComplete="current-password"
+        value={password}
+        onChange={(e) => {
+          setPassword(e.target.value)
+          setError(null)
+        }}
+        aria-label="PW"
+        autoFocus
+      />
+      {error && <p className="field-error">{error}</p>}
+      <div className="confirm-row">
+        <button type="submit" className="btn small danger" disabled={busy}>
+          {busy ? t('탈퇴하는 중…') : t('탈퇴하기')}
+        </button>
+        <button
+          type="button"
+          className="btn small"
+          disabled={busy}
+          onClick={() => {
+            setOpen(false)
+            setPassword('')
+            setError(null)
+          }}
+        >
+          {t('취소')}
+        </button>
+      </div>
+    </form>
   )
 }
 

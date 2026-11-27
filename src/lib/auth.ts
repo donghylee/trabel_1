@@ -7,6 +7,7 @@ import { t } from '../i18n'
 import { createRecoveryClient, supabase } from '../services/supabase'
 import type { DmUser } from '../types'
 import { deletePhotos, uploadPhoto } from './photos'
+import { disablePush } from './push'
 
 const USERS_KEY = 'trip-route-planner:users:v1'
 const SESSION_KEY = 'trip-route-planner:session:v1'
@@ -257,6 +258,48 @@ export function updateNickname(session: SessionUser, nickname: string): Promise<
 export async function logOut() {
   saveSession(null)
   await supabase?.auth.signOut()
+}
+
+/** 저장소의 {폴더}/ 안 파일 경로들 (이 사람이 올린 글 사진·프로필 사진) */
+async function folderFiles(bucket: string, folder: string): Promise<string[]> {
+  if (!supabase) return []
+  // shortcut: 한 번에 1000개까지만 지움, 사진이 더 많은 계정이 생기면 반복해서 지우기
+  const { data } = await supabase.storage.from(bucket).list(folder, { limit: 1000 })
+  return (data ?? []).map((f) => `${folder}/${f.name}`)
+}
+
+/**
+ * 회원 탈퇴 — 비밀번호를 다시 확인한 뒤 계정과 모든 데이터를 지움. 성공하면 null, 실패하면 이유.
+ * 서버: 사진(저장소)을 먼저 지우고 delete_my_account(supabase/migrations/007_delete_account.sql)로 계정을 지우면
+ * 여행·글·댓글·메시지 등은 DB가 함께 지움.
+ */
+export async function deleteAccount(session: SessionUser, password: string): Promise<string | null> {
+  if (supabase) {
+    const { error: wrong } = await supabase.auth.signInWithPassword({ email: session.email, password })
+    if (wrong) return t('PW가 올바르지 않습니다.')
+    // 이 기기로 오던 알림 끊기
+    await disablePush().catch(() => {})
+    const { data: sent } = await supabase.from('dm_messages').select('photos').eq('sender_id', session.id)
+    const dmPhotos = (sent ?? []).flatMap((m: { photos: string[] | null }) => m.photos ?? [])
+    const [postPhotos, avatars] = await Promise.all([folderFiles('post-photos', session.id), folderFiles('avatars', session.id)])
+    await Promise.all([
+      postPhotos.length && supabase.storage.from('post-photos').remove(postPhotos),
+      avatars.length && supabase.storage.from('avatars').remove(avatars),
+      dmPhotos.length && supabase.storage.from('dm-photos').remove(dmPhotos),
+    ])
+    const { error } = await supabase.rpc('delete_my_account')
+    if (error) return t('탈퇴하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+    saveSession(null)
+    // 계정이 이미 없어 서버 로그아웃은 실패할 수 있음 — 이 기기의 로그인만 지우면 됨
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+    return null
+  }
+  const users = loadUsers()
+  const me = users.find((u) => u.id === session.id)
+  if (!me || me.passwordHash !== (await hash(password))) return t('PW가 올바르지 않습니다.')
+  if (!saveUsers(users.filter((u) => u.id !== session.id))) return t('탈퇴하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+  saveSession(null)
+  return null
 }
 
 /** 새로고침 직후 바로 쓰는 마지막 로그인 정보 (서버를 쓰면 watchSession이 곧 확인해서 바로잡음) */

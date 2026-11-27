@@ -482,6 +482,16 @@ export const en: Record<string, string> = {
   '날짜를 넣으면 일정마다 10분 전에 알림을 보내 드려요. (계정 설정에서 알림을 켠 기기)':
     'Add a date to get an alert 10 minutes before each stop (on devices with alerts turned on in Account settings).',
   '알림 설정': 'Notifications',
+  '회원 탈퇴': 'Delete account',
+  '탈퇴하기': 'Delete account',
+  '탈퇴하는 중…': 'Deleting…',
+  'PW가 올바르지 않습니다.': 'The password is incorrect.',
+  'PW를 다시 입력해 주세요': 'Enter your password again',
+  '탈퇴하지 못했습니다. 잠시 후 다시 시도해 주세요.': "Couldn't delete your account. Please try again later.",
+  '정말 탈퇴할까요? 지운 계정과 데이터는 되돌릴 수 없어요.': "Delete your account? Your account and data can't be restored.",
+  '탈퇴하면 저장한 여행, 올린 글·사진, 댓글, 좋아요, 북마크, 메시지가 모두 지워지고 되돌릴 수 없어요.':
+    "Deleting your account removes your saved trips, posts and photos, comments, likes, bookmarks and messages. This can't be undone.",
+  '회원 탈퇴가 완료되었습니다. 그동안 이용해 주셔서 감사합니다.': 'Your account has been deleted. Thank you for using PLAN:J.',
   '키패드 숨기기': 'Hide keyboard',
   '여행 일정 알림': 'Trip schedule alerts',
   '여행 시작일을 넣은 일정의 방문·식사 10분 전에 알려 드려요.': 'Get an alert 10 minutes before each stop and meal on trips with a start date.',

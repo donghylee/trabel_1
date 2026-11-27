@@ -129,3 +129,15 @@ select cron.schedule(
 2. **Edge Functions** → `dm-push`와 `notify-push`를 각각 열어 편집기 내용을 [`dm-push/index.ts`](../supabase/functions/dm-push/index.ts), [`notify-push/index.ts`](../supabase/functions/notify-push/index.ts)의 새 내용으로 바꾸고 **Deploy**. 이름은 바꾸지 말고, `notify-push`의 Verify JWT는 꺼진 그대로 둡니다.
 
 서버 함수는 보내기 전에 받는 사람의 설정을 확인합니다. 끈 종류는 보내지 않습니다. 1단계 SQL을 돌리기 전에는 모두 켜진 것으로 봅니다.
+
+---
+
+# 회원 탈퇴 (계정 설정)
+
+계정 설정 맨 아래 **[회원 탈퇴]** → PW 다시 입력 → 확인 창 → 계정과 모든 데이터가 지워집니다.
+
+**SQL Editor** → [`supabase/migrations/007_delete_account.sql`](../supabase/migrations/007_delete_account.sql)을 붙여 넣고 **Run** (저장하지 않아도 됩니다). 실행하기 전에는 탈퇴를 누르면 "탈퇴하지 못했습니다"가 나옵니다.
+
+- 앱이 먼저 그 사람이 올린 사진(글 사진·프로필 사진·메시지 사진)을 저장소에서 지웁니다.
+- 그다음 `delete_my_account()`가 로그인한 본인 계정만 지우고, 여행·일정·글·댓글·좋아요·북마크·메시지·알림 설정·일정 알림은 DB가 함께 지웁니다.
+- 상대가 남아 있는 대화방은 상대 쪽에 남지만, 탈퇴한 사람이 보낸 메시지는 지워집니다.

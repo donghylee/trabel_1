@@ -499,3 +499,21 @@ alter table public.notify_log enable row level security;
 alter table public.profiles add column if not exists notify_trip boolean not null default true; -- 여행 일정 10분 전
 alter table public.profiles add column if not exists notify_post boolean not null default true; -- 내 글 좋아요·댓글
 alter table public.profiles add column if not exists notify_dm boolean not null default true;   -- 메시지(DM)
+
+-- ── 007 회원 탈퇴 ──
+create or replace function public.delete_my_account()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'login required';
+  end if;
+  delete from auth.users where id = auth.uid();
+end;
+$$;
+
+revoke all on function public.delete_my_account() from public, anon;
+grant execute on function public.delete_my_account() to authenticated;

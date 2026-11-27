@@ -676,6 +676,13 @@ export default function App() {
           <AuthPage
             user={user}
             onUserChange={setUser}
+            onAccountDeleted={() => {
+              // 계정·알림 구독·로그인은 deleteAccount가 이미 지움 — 화면 상태만 로그아웃처럼 정리
+              setUser(null)
+              setEditing(null)
+              setDmOpen(null)
+              setDmTrip(null)
+            }}
             onLogin={(u) => {
               setUser(u)
               // 로그인하면 일정 만들기로 (저장하려다 로그인했으면 만들던 일정이 그대로 있음)
