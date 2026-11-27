@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { SessionUser } from '../lib/auth'
-import { deletePhotos, uploadPhotos } from '../lib/photos'
-import { deleteServerPost, fetchServerPosts, insertServerPost, loadPosts, savePosts } from '../lib/posts'
+import { deletePhotos, uploadFile, uploadPhotos } from '../lib/photos'
+import { deleteServerPost, fetchServerPosts, fetchTaggedPosts, insertServerPost, loadPosts, savePosts } from '../lib/posts'
 import { serverEnabled } from '../services/supabase'
 import type { FeedPost } from '../types'
 
@@ -21,14 +21,14 @@ export function usePosts(user: SessionUser | null, mine = false, tag: string | n
   )
   const [loading, setLoading] = useState(serverEnabled)
   const [loadFailed, setLoadFailed] = useState(false)
-  // 태그를 고르면 서버에 그 태그가 달린 글을 따로 물어봄 (최근 글 목록에 없는 예전 글까지). 받는 중이면 null
+  // 태그를 고르면 서버에 그 태그가 달린 글(댓글에 #태그를 쓴 글 포함)을 따로 물어봄. 받는 중이면 null
   const [tagged, setTagged] = useState<FeedPost[] | null>(null)
 
   useEffect(() => {
     setTagged(null)
     if (!serverEnabled || !tag) return
     let cancelled = false
-    fetchServerPosts(undefined, tag).then((list) => {
+    fetchTaggedPosts(tag).then((list) => {
       if (!cancelled) setTagged(list ?? [])
     })
     return () => {
@@ -56,7 +56,8 @@ export function usePosts(user: SessionUser | null, mine = false, tag: string | n
     }
   }, [authorId])
 
-  async function publish(input: NewPost): Promise<FeedPost | null> {
+  /** videoFile: 함께 올릴 영상 (서버가 있을 때만 — 브라우저 저장 공간에는 들어가지 않음) */
+  async function publish(input: NewPost, videoFile?: File): Promise<FeedPost | null> {
     if (!user) return null
     const post = {
       ...input,
@@ -69,12 +70,17 @@ export function usePosts(user: SessionUser | null, mine = false, tag: string | n
       // 일정 이미지 배경도 직접 올린 사진이면 함께 올림 (나라 사진은 앱 안 주소 그대로)
       const uploaded = await uploadPhotos('post-photos', user.id, [...(post.photos ?? []), ...(post.cover ? [post.cover] : [])])
       if (!uploaded) return null
+      const video = videoFile ? await uploadFile('post-photos', user.id, videoFile) : undefined
+      if (video === null) {
+        void deletePhotos('post-photos', uploaded)
+        return null
+      }
       const photos = post.cover ? uploaded.slice(0, -1) : uploaded
       const cover = post.cover ? uploaded[uploaded.length - 1] : undefined
-      const saved = await insertServerPost({ ...post, photos, cover }, user.id)
+      const saved = await insertServerPost({ ...post, photos, cover, video }, user.id)
       if (saved) setPosts((prev) => [saved, ...prev])
-      // 글 저장에 실패하면 올려 둔 사진도 지움
-      else void deletePhotos('post-photos', uploaded)
+      // 글 저장에 실패하면 올려 둔 사진·영상도 지움
+      else void deletePhotos('post-photos', [...uploaded, ...(video ? [video] : [])])
       return saved
     }
     const saved: FeedPost = { ...post, id: `my-${Date.now().toString(36)}`, postedAt: new Date().toISOString() }
@@ -92,7 +98,12 @@ export function usePosts(user: SessionUser | null, mine = false, tag: string | n
     if (!ok) return false
     // 글에 붙였던 사진도 저장소에서 지움
     const removed = posts.find((p) => p.id === postId)
-    if (serverEnabled) void deletePhotos('post-photos', [...(removed?.photos ?? []), ...(removed?.cover ? [removed.cover] : [])])
+    if (serverEnabled)
+      void deletePhotos('post-photos', [
+        ...(removed?.photos ?? []),
+        ...(removed?.cover ? [removed.cover] : []),
+        ...(removed?.video ? [removed.video] : []),
+      ])
     setPosts(next)
     setTagged((prev) => prev && prev.filter((p) => p.id !== postId))
     return true

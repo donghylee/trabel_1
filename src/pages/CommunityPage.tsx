@@ -5,8 +5,15 @@ import { t } from '../i18n'
 import type { SessionUser } from '../lib/auth'
 import { askConfirm } from '../lib/confirm'
 import { usePosts } from '../hooks/usePosts'
-import { addComment as saveComment, deleteComment, isServerPost, loadReactions, setLiked as saveLiked } from '../lib/reactions'
-import { parseTags, popularTags } from '../lib/posts'
+import {
+  addComment as saveComment,
+  deleteComment,
+  isServerPost,
+  loadReactions,
+  localComments,
+  setLiked as saveLiked,
+} from '../lib/reactions'
+import { parseTags, popularTags, textTags } from '../lib/posts'
 import { serverEnabled } from '../services/supabase'
 import { renderTripImage } from '../lib/shareImage'
 import { useSwipe } from '../hooks/useSwipe'
@@ -53,6 +60,8 @@ export default function CommunityPage({
   // 고른 태그 (#도쿄) — 태그 검색·많이 쓰인 태그·글의 태그를 눌러서
   const [tag, setTag] = useState<string | null>(null)
   const [tagText, setTagText] = useState('')
+  // 태그 검색 칸·많이 쓰인 태그는 [검색]을 눌렀을 때만
+  const [searchOpen, setSearchOpen] = useState(false)
   const feed = usePosts(user, false, tag)
   const [writeFor] = useState(() => writeTrip ?? undefined)
   const [writing, setWriting] = useState(() => !!writeTrip && !!user)
@@ -79,8 +88,11 @@ export default function CommunityPage({
   // 태그를 고르면 서버가 찾아 준 글(최근 50개 밖의 예전 글까지). 예시 게시물·서버 없음이면 지금 목록에서 거름
   const taggedFromServer = tag && !showingSamples ? feed.tagged : null
   const tagLoading = !!tag && serverEnabled && !showingSamples && feed.tagged === null
+  // 서버가 찾아 준 글은 이미 태그로 걸러져 있음 — 그 밖(예시·서버 없음)은 글의 태그와 댓글 속 #태그로 거름
+  const hasTag = (p: FeedPost, name: string) =>
+    p.tags.includes(name) || [...p.comments, ...localComments(p.id)].some((c) => textTags(c.text).includes(name))
   const posts = (taggedFromServer ?? allPosts).filter(
-    (p) => (!filter || p.trip.countryCode === filter) && (!tag || p.tags.includes(tag)),
+    (p) => (!filter || p.trip.countryCode === filter) && (!tag || !!taggedFromServer || hasTag(p, tag)),
   )
 
   function chooseTag(next: string | null) {
@@ -101,16 +113,18 @@ export default function CommunityPage({
     tags,
     photos,
     cover,
+    video,
   }: {
     trip: SavedTrip
     caption: string
     tags: string[]
     photos: string[]
     cover?: string
+    video?: File
   }): Promise<string | null> {
     if (!user) return t('로그인 후 사용 가능한 기능입니다.')
     // 올린 뒤 내 여행을 고쳐도 게시물은 그대로 남게 복사본으로
-    const saved = await feed.publish({ trip: structuredClone(trip), caption, tags, photos, cover })
+    const saved = await feed.publish({ trip: structuredClone(trip), caption, tags, photos, cover }, video)
     // 실패하면 올리지 않고 글쓰기 창에서 안내
     if (!saved)
       return serverEnabled
@@ -143,6 +157,15 @@ export default function CommunityPage({
           ))}
           <button
             type="button"
+            className={`chip chip-search ${searchOpen ? 'active' : ''}`}
+            aria-expanded={searchOpen}
+            aria-controls="tag-search-panel"
+            onClick={() => setSearchOpen((open) => !open)}
+          >
+            {t('🔍 검색')}
+          </button>
+          <button
+            type="button"
             className="chip chip-write"
             onClick={() => {
               if (!user) {
@@ -156,33 +179,38 @@ export default function CommunityPage({
             {t('글쓰기')}
           </button>
         </div>
-        <form className="tag-search" role="search" onSubmit={searchTag}>
-          <input
-            className="text-input"
-            type="search"
-            placeholder={t('#태그 검색 (예: 맛집)')}
-            value={tagText}
-            onChange={(e) => setTagText(e.target.value)}
-            aria-label={t('태그 검색')}
-            enterKeyHint="search"
-          />
-          <button type="submit" className="btn small" disabled={!parseTags(tagText).length}>
-            {t('검색')}
-          </button>
-        </form>
-        {popular.length > 0 && (
-          <div className="chips tag-chips" aria-label={t('많이 쓰인 태그')}>
-            {popular.map((name) => (
-              <button
-                key={name}
-                type="button"
-                className={`chip tag-chip ${tag === name ? 'active' : ''}`}
-                aria-pressed={tag === name}
-                onClick={() => chooseTag(tag === name ? null : name)}
-              >
-                #{name}
+        {searchOpen && (
+          <div id="tag-search-panel" className="tag-search-panel">
+            <form className="tag-search" role="search" onSubmit={searchTag}>
+              <input
+                className="text-input"
+                type="search"
+                placeholder={t('#태그 검색 (예: 맛집)')}
+                value={tagText}
+                onChange={(e) => setTagText(e.target.value)}
+                aria-label={t('태그 검색')}
+                enterKeyHint="search"
+                autoFocus
+              />
+              <button type="submit" className="btn small" disabled={!parseTags(tagText).length}>
+                {t('검색')}
               </button>
-            ))}
+            </form>
+            {popular.length > 0 && (
+              <div className="chips tag-chips" aria-label={t('많이 쓰인 태그')}>
+                {popular.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    className={`chip tag-chip ${tag === name ? 'active' : ''}`}
+                    aria-pressed={tag === name}
+                    onClick={() => chooseTag(tag === name ? null : name)}
+                  >
+                    #{name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
         {tag && (
@@ -303,20 +331,28 @@ function TripImage({ trip, country, cover }: { trip: SavedTrip; country: Country
   )
 }
 
-/** 일정 이미지 + 함께 올린 사진을 옆으로 넘겨 보기 */
+/** 일정 이미지 + 함께 올린 사진 + 영상을 옆으로 넘겨 보기 */
 function PostMedia({
   trip,
   country,
   photos,
   cover,
+  video,
 }: {
   trip: SavedTrip
   country: Country | undefined
   photos: string[]
   cover?: string
+  video?: string
 }) {
   const [index, setIndex] = useState(0)
-  const count = photos.length + 1
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const videoIndex = photos.length + 1
+  const count = videoIndex + (video ? 1 : 0)
+  // 영상 칸에서 다른 칸으로 넘기면 멈춤
+  useEffect(() => {
+    if (index !== videoIndex) videoRef.current?.pause()
+  }, [index, videoIndex])
   const go = (next: number) => setIndex(Math.max(0, Math.min(count - 1, next)))
   const swipe = useSwipe(index, count, go)
   if (count === 1) return <TripImage trip={trip} country={country} cover={cover} />
@@ -334,6 +370,18 @@ function PostMedia({
             <img src={src} alt={t('{name} 사진 {n}', { name: tripTitle(trip), n: i + 1 })} loading="lazy" />
           </div>
         ))}
+        {video && (
+          <div className="post-photo post-video" inert={index !== videoIndex}>
+            <video
+              ref={videoRef}
+              src={video}
+              controls
+              playsInline
+              preload="metadata"
+              aria-label={t('{name} 영상', { name: tripTitle(trip) })}
+            />
+          </div>
+        )}
       </div>
       <span className="post-media-count">
         {index + 1}/{count}
@@ -471,6 +519,29 @@ const Icon = {
   ),
 }
 
+/** 글 속 #태그를 누를 수 있게 (onTag가 없으면 색만 다르게) */
+function TaggedText({ text, onTag }: { text: string; onTag?: (tag: string) => void }) {
+  // split에 괄호를 두면 #태그 조각도 남음 → 홀수 자리가 태그
+  const parts = text.split(/(#[^\s#,]+)/)
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 0 ? (
+          part
+        ) : onTag ? (
+          <button key={i} type="button" className="post-tag" onClick={() => onTag(part.slice(1))}>
+            {part}
+          </button>
+        ) : (
+          <span key={i} className="post-tag">
+            {part}
+          </span>
+        ),
+      )}
+    </>
+  )
+}
+
 /** 게시글 한 개 — 커뮤니티 피드와 마이페이지(내가 올린 글)에서 씀 */
 export function PostCard({
   post,
@@ -601,7 +672,7 @@ export function PostCard({
         )}
       </header>
 
-      <PostMedia trip={post.trip} country={country} photos={post.photos ?? []} cover={post.cover} />
+      <PostMedia trip={post.trip} country={country} photos={post.photos ?? []} cover={post.cover} video={post.video} />
 
       <div className="post-actions">
         <button
@@ -680,7 +751,8 @@ export function PostCard({
             {visibleComments.map((c) => (
               <li key={c.id} className="post-comment">
                 <span>
-                  <strong>{c.author.nickname}</strong> {c.text} <span className="hint">{timeAgo(c.postedAt)}</span>
+                  <strong>{c.author.nickname}</strong> <TaggedText text={c.text} onTag={onTag} />{' '}
+                  <span className="hint">{timeAgo(c.postedAt)}</span>
                 </span>
                 {/* 내가 쓴 댓글에만 [⋯] → 삭제 */}
                 {user && c.author.id === user.id && (

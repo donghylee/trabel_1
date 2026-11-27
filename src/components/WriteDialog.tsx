@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { findCountry, tripTitle } from '../data/catalog'
 import { t } from '../i18n'
 import { resizeImage } from '../lib/image'
+import { MAX_VIDEO_MB } from '../lib/photos'
+import { serverEnabled } from '../services/supabase'
 import { MAX_TAG_LENGTH, MAX_TAGS, parseTags } from '../lib/posts'
 import { renderTripImage } from '../lib/shareImage'
 import type { SavedTrip } from '../types'
@@ -11,7 +13,15 @@ type Props = {
   onCancel: () => void
   /** 올리지 못했으면 이유를 돌려줌 */
   /** 실패하면 안내 문구, 성공하면 null */
-  onSubmit: (post: { trip: SavedTrip; caption: string; tags: string[]; photos: string[]; cover?: string }) => Promise<string | null>
+  onSubmit: (post: {
+    trip: SavedTrip
+    caption: string
+    tags: string[]
+    photos: string[]
+    cover?: string
+    /** 함께 올릴 영상 (서버가 있을 때만 고를 수 있음) */
+    video?: File
+  }) => Promise<string | null>
   onNewPlan: () => void
   /** 처음에 골라 둘 여행 (마이페이지 [공유]로 들어온 경우) */
   initialTripId?: string
@@ -33,6 +43,14 @@ export default function WriteDialog({ trips, onCancel, onSubmit, onNewPlan, init
   const [tags, setTags] = useState('')
   const [photos, setPhotos] = useState<string[]>([])
   const [loadingPhotos, setLoadingPhotos] = useState(false)
+  // 고른 영상과 미리보기 주소 (영상은 커서 data URL로 바꾸지 않고 파일 그대로 올림)
+  const [video, setVideo] = useState<{ file: File; url: string } | null>(null)
+  useEffect(
+    () => () => {
+      if (video) URL.revokeObjectURL(video.url)
+    },
+    [video],
+  )
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [coverKind, setCoverKind] = useState<CoverKind>('none')
@@ -97,6 +115,20 @@ export default function WriteDialog({ trips, onCancel, onSubmit, onNewPlan, init
     setLoadingPhotos(false)
   }
 
+  function pickVideo(file: File | undefined) {
+    if (!file) return
+    if (!file.type.startsWith('video/')) {
+      setError(t('영상 파일만 올릴 수 있어요.'))
+      return
+    }
+    if (file.size > MAX_VIDEO_MB * 1024 * 1024) {
+      setError(t('영상은 {n}MB까지 올릴 수 있어요. 길이를 줄이거나 화질을 낮춰 주세요.', { n: MAX_VIDEO_MB }))
+      return
+    }
+    setError(null)
+    setVideo({ file, url: URL.createObjectURL(file) })
+  }
+
   async function submit() {
     if (!trip) {
       setError(t('올릴 여행을 골라 주세요.'))
@@ -107,7 +139,7 @@ export default function WriteDialog({ trips, onCancel, onSubmit, onNewPlan, init
       return
     }
     setSubmitting(true)
-    const failure = await onSubmit({ trip, caption: caption.trim(), tags: parseTags(tags), photos, cover })
+    const failure = await onSubmit({ trip, caption: caption.trim(), tags: parseTags(tags), photos, cover, video: video?.file })
     setSubmitting(false)
     if (failure) setError(failure)
   }
@@ -275,6 +307,40 @@ export default function WriteDialog({ trips, onCancel, onSubmit, onNewPlan, init
               <span className="hint">{t('피드에서는 일정 이미지 다음에 옆으로 넘겨 볼 수 있습니다.')}</span>
             </div>
 
+            {/* 영상은 서버 저장소에만 올릴 수 있음 (브라우저 저장 공간에는 너무 큼) */}
+            {serverEnabled && (
+              <div className="dialog-field">
+                <span className="dialog-label">{t('영상 (선택, 1개, {n}MB까지)', { n: MAX_VIDEO_MB })}</span>
+                {video ? (
+                  <div className="write-video">
+                    <video src={video.url} controls playsInline preload="metadata" />
+                    <button
+                      type="button"
+                      className="write-photo-remove"
+                      aria-label={t('영상 빼기')}
+                      onClick={() => setVideo(null)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : (
+                  <label className="write-photo add write-video-add">
+                    {t('+ 영상 추가')}
+                    <input
+                      type="file"
+                      accept="video/*"
+                      hidden
+                      onChange={(e) => {
+                        pickVideo(e.target.files?.[0])
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
+                )}
+                <span className="hint">{t('피드에서는 사진 다음에 넘겨서 볼 수 있습니다.')}</span>
+              </div>
+            )}
+
             <label className="dialog-field">
               <span className="dialog-label">
                 {t('태그 (선택)')} <span className="hint">{t('{n}개까지, 한 태그에 {m}자까지', { n: MAX_TAGS, m: MAX_TAG_LENGTH })}</span>
@@ -294,7 +360,7 @@ export default function WriteDialog({ trips, onCancel, onSubmit, onNewPlan, init
                 {t('취소')}
               </button>
               <button type="button" className="btn primary" disabled={loadingPhotos || submitting} onClick={submit}>
-                {t('올리기')}
+                {submitting ? t('올리는 중…') : t('올리기')}
               </button>
             </div>
           </>

@@ -24,6 +24,21 @@ export async function uploadPhoto(bucket: PhotoBucket, userId: string, photo: st
   return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl
 }
 
+/** 영상 한 개 — 한 글에 1개, Supabase 무료 요금제의 파일 하나 업로드 한도(50MB)까지 */
+export const MAX_VIDEO_MB = 50
+
+/** 파일(영상)을 그대로 올리고 공개 주소를 돌려줌. 실패하면 null */
+export async function uploadFile(bucket: PhotoBucket, userId: string, file: File): Promise<string | null> {
+  if (!supabase) return null
+  const ext = /^[a-z0-9]{1,5}$/.exec(file.name.split('.').pop()?.toLowerCase() ?? '')?.[0] ?? 'mp4'
+  const path = `${userId}/${crypto.randomUUID()}.${ext}`
+  const { error } = await supabase.storage
+    .from(bucket)
+    .upload(path, file, { contentType: file.type || 'video/mp4', cacheControl: '31536000' })
+  if (error) return null
+  return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl
+}
+
 /** 여러 장을 올림 — 한 장이라도 실패하면 null (이미 올린 것은 지움) */
 export async function uploadPhotos(bucket: PhotoBucket, userId: string, photos: string[]): Promise<string[] | null> {
   const urls = await Promise.all(photos.map((photo) => uploadPhoto(bucket, userId, photo)))

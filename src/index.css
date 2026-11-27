@@ -1679,3 +1679,13 @@ button.write-trip:hover { border-color: var(--strong); }
 button.post-tag { cursor: pointer; }
 button.post-tag:hover { text-decoration: underline; }
 span.post-tag { color: inherit; }
+.chip-search { margin-left: auto; }
+.chip-search + .chip-write { margin-left: 0; }
+.tag-search-panel { display: flex; flex-direction: column; gap: 10px; }
+.post-comment .post-tag { font-weight: 600; }
+
+/* 커뮤니티 — 글에 영상 */
+.post-video video { width: 100%; height: 100%; object-fit: contain; display: block; background: #000; }
+.write-video { position: relative; width: 100%; max-width: 280px; border-radius: 10px; overflow: hidden; background: #000; }
+.write-video video { width: 100%; max-height: 240px; display: block; }
+.write-video-add { width: auto; padding: 0 16px; }

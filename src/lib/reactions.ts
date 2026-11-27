@@ -31,7 +31,7 @@ function write(key: string, value: unknown): boolean {
   }
 }
 
-function localComments(postId: string): FeedComment[] {
+export function localComments(postId: string): FeedComment[] {
   return read<Record<string, FeedComment[]>>(COMMENTS_KEY, {})[postId] ?? []
 }
 

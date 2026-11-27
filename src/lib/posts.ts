@@ -19,6 +19,8 @@ type FeedRow = {
   photos: string[]
   /** 2026-11 추가 (supabase/migrations/003_post_cover.sql) — 그 전 DB에는 없음 */
   cover?: string | null
+  /** 2026-11 추가 (supabase/migrations/008_post_video.sql) — 그 전 DB에는 없음 */
+  video?: string | null
   like_count: number
   created_at: string
 }
@@ -31,6 +33,7 @@ const toPost = (r: FeedRow): FeedPost => ({
   tags: r.tags,
   photos: r.photos,
   cover: r.cover ?? undefined,
+  video: r.video ?? undefined,
   // 서버 수에는 내 좋아요도 들어 있음 — 화면(PostCard)에서 내 것을 빼고 다시 더함
   likeCount: r.like_count,
   // 댓글은 글마다 따로 받아 옴 (lib/reactions)
@@ -38,13 +41,40 @@ const toPost = (r: FeedRow): FeedPost => ({
   postedAt: r.created_at,
 })
 
-/** 최근 글 (새 글이 앞). authorId를 주면 그 사람 글 전부, tag를 주면 그 태그가 달린 글만. 실패하면 null */
-export async function fetchServerPosts(authorId?: string, tag?: string): Promise<FeedPost[] | null> {
+/** 최근 글 (새 글이 앞). authorId를 주면 그 사람 글 전부. 실패하면 null */
+export async function fetchServerPosts(authorId?: string): Promise<FeedPost[] | null> {
   if (!supabase) return null
-  let query = supabase.from('post_feed').select('*').order('created_at', { ascending: false })
-  if (tag) query = query.contains('tags', [tag])
+  const query = supabase.from('post_feed').select('*').order('created_at', { ascending: false })
   const { data, error } = await (authorId ? query.eq('author_id', authorId) : query.limit(FEED_LIMIT))
   return error || !data ? null : (data as FeedRow[]).map(toPost)
+}
+
+/** LIKE 검색의 특수 문자(% _ \)를 글자 그대로 찾게 */
+const escapeLike = (text: string) => text.replace(/[\\%_]/g, (c) => `\\${c}`)
+
+/** 그 태그가 달린 글 + 댓글에 #그태그를 쓴 글 (새 글이 앞, 최근 글 목록 밖의 예전 글까지). 실패하면 null */
+export async function fetchTaggedPosts(tag: string): Promise<FeedPost[] | null> {
+  if (!supabase) return null
+  const client = supabase
+  const feed = () => client.from('post_feed').select('*').order('created_at', { ascending: false }).limit(FEED_LIMIT)
+  // 댓글은 LIKE로 후보를 찾고, #맛집투어 같은 다른 태그는 빼도록 정확히 같은 태그인지 다시 확인
+  const { data: found, error } = await client
+    .from('comments')
+    .select('post_id, text')
+    .ilike('text', `%#${escapeLike(tag)}%`)
+    .limit(200)
+  if (error) return null
+  const ids = [...new Set((found ?? []).filter((c) => textTags(c.text).includes(tag)).map((c) => c.post_id as string))]
+  const [byTag, byComment] = await Promise.all([
+    feed().contains('tags', [tag]),
+    ids.length ? feed().in('id', ids) : Promise.resolve({ data: [], error: null }),
+  ])
+  if (byTag.error || byComment.error) return null
+  const rows = new Map([...(byTag.data ?? []), ...(byComment.data ?? [])].map((r) => [r.id as string, r as FeedRow]))
+  return [...rows.values()]
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .slice(0, FEED_LIMIT)
+    .map(toPost)
 }
 
 /** 글을 올리고 서버가 정한 id·시각을 붙인 글을 돌려줌. 실패하면 null */
@@ -60,6 +90,7 @@ export async function insertServerPost(post: Omit<FeedPost, 'id' | 'postedAt'>, 
       photos: post.photos ?? [],
       // 배경을 고르지 않았으면 열을 아예 보내지 않음 (cover 열을 추가하기 전 DB에서도 글쓰기가 되게)
       ...(post.cover ? { cover: post.cover } : {}),
+      ...(post.video ? { video: post.video } : {}),
     })
     .select('id, created_at')
     .single<{ id: string; created_at: string }>()
@@ -104,6 +135,11 @@ export const MAX_TAG_LENGTH = 20
 export function parseTags(text: string): string[] {
   const tags = text.split(/[\s,#]+/).map((t) => [...t.trim()].slice(0, MAX_TAG_LENGTH).join(''))
   return [...new Set(tags.filter(Boolean))].slice(0, MAX_TAGS)
+}
+
+/** 글 속 해시태그 (댓글 "여기 #맛집 #야경 좋아요" → ['맛집', '야경']) — 글의 태그 칸과 같은 구분(공백·쉼표·#) */
+export function textTags(text: string): string[] {
+  return [...text.matchAll(/#([^\s#,]+)/g)].map((m) => m[1])
 }
 
 /** 글들에 많이 달린 태그 (많은 순, 같으면 먼저 나온 순) */
