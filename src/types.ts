@@ -188,6 +188,8 @@ export type SavedTrip = {
   countryCode: string
   createdAt: string
   updatedAt: string
+  /** 여행 시작일(1일차 날짜, YYYY-MM-DD). 있으면 일정 10분 전 알림을 보냄 (lib/reminders.ts) */
+  startDate?: string
   /** dayNumber 오름차순 */
   days: SavedDay[]
 }

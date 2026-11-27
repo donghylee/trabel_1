@@ -92,10 +92,24 @@ function loadDraft(): Draft | null {
   }
 }
 
-function loadScreen(): Screen {
-  // 메시지 푸시 알림을 눌러 열었으면 그 대화로 (/?dm=대화 id — public/push-sw.js)
-  const dm = new URLSearchParams(window.location.search).get('dm')
+/**
+ * 알림을 눌러 연 주소 → 갈 화면 (public/push-sw.js)
+ * /?dm=대화 id · /?post=내 글 id (좋아요·댓글) · /?trip=여행 id&day=일차 (일정 10분 전)
+ */
+function screenOfUrl(url: string): (Screen & { post?: string }) | null {
+  const q = new URL(url, window.location.origin).searchParams
+  const dm = q.get('dm')
   if (dm) return { view: 'messages', selection: null, dm }
+  const post = q.get('post')
+  if (post) return { view: 'mypage', selection: null, post }
+  const trip = q.get('trip')
+  if (trip) return { view: 'mypage', selection: { tripId: trip, dayNumber: Number(q.get('day')) || null } }
+  return null
+}
+
+function loadScreen(): Screen {
+  const opened = screenOfUrl(window.location.href)
+  if (opened) return opened
   try {
     const saved = JSON.parse(sessionStorage.getItem(SCREEN_KEY) ?? 'null') as Screen | null
     if (saved?.view) return saved
@@ -150,6 +164,8 @@ export default function App() {
   const [myPageSelection, setMyPageSelection] = useState<MyPageSelection>(() => loadScreen().selection)
   // 메시지: 열어 둔 대화, 메시지로 받은 일정을 지도로 보는 중이면 그 일정
   const [dmOpen, setDmOpen] = useState<string | null>(() => loadScreen().dm ?? null)
+  // 좋아요·댓글 알림을 눌러 왔으면 마이페이지에서 그 글로 내려 줌
+  const [focusPost, setFocusPost] = useState<string | null>(() => screenOfUrl(window.location.href)?.post ?? null)
   // 마이페이지·찜한 여행 [공유]로 커뮤니티 글쓰기를 열 여행
   const [writeTrip, setWriteTrip] = useState<SavedTrip | null>(null)
   const [dmTrip, setDmTrip] = useState<{ trip: SavedTrip; from: DmUser; dayNumber: number | null } | null>(null)
@@ -208,11 +224,13 @@ export default function App() {
     if (!sw) return
     const onMessage = (e: MessageEvent<{ type?: string; url?: string }>) => {
       if (e.data?.type !== 'open-url' || !e.data.url) return
-      const dm = new URL(e.data.url, window.location.origin).searchParams.get('dm')
-      if (!dm) return
+      const opened = screenOfUrl(e.data.url)
+      if (!opened) return
       setDmTrip(null)
-      setDmOpen(dm)
-      setView('messages')
+      setDmOpen(opened.dm ?? null)
+      setMyPageSelection(opened.selection)
+      setFocusPost(opened.post ?? null)
+      setView(opened.view)
     }
     sw.addEventListener('message', onMessage)
     return () => sw.removeEventListener('message', onMessage)
@@ -687,6 +705,8 @@ export default function App() {
             }}
             selection={myPageSelection}
             onSelect={setMyPageSelection}
+            focusPost={focusPost}
+            onPostFocused={() => setFocusPost(null)}
             onEditDay={editDay}
             onCopyDay={(_, day) => copyDay(day)}
             onAddDay={(trip) => {

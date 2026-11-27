@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { tripTitle } from '../data/catalog'
 import { t } from '../i18n'
 import { nextDayNumber, type SaveTarget } from '../lib/storage'
+import { serverEnabled } from '../services/supabase'
 import type { Country, SavedTrip } from '../types'
 
 type Props = {
@@ -24,24 +25,32 @@ export default function SaveDialog({ country, trips, defaultTripId, defaultDayNu
   const [tripId, setTripId] = useState(initialTrip?.id ?? trips[0]?.id ?? '')
   const selectedTrip = mode === 'existing' ? trips.find((trip) => trip.id === tripId) : undefined
   const [dayNumber, setDayNumber] = useState(defaultDayNumber ?? nextDayNumber(initialTrip ?? undefined))
+  // 여행 시작일 — 일정 10분 전 알림용 (서버에 저장할 때만 알림이 감)
+  const [startDate, setStartDate] = useState(initialTrip?.startDate ?? '')
 
   const overwrites = !!selectedTrip?.days.some((d) => d.dayNumber === dayNumber)
   const canSave = mode === 'new' ? name.trim().length > 0 : !!selectedTrip
 
   function changeTrip(id: string) {
     setTripId(id)
-    setDayNumber(nextDayNumber(trips.find((trip) => trip.id === id)))
+    const trip = trips.find((trip) => trip.id === id)
+    setDayNumber(nextDayNumber(trip))
+    setStartDate(trip?.startDate ?? '')
   }
 
   function changeMode(next: 'new' | 'existing') {
     setMode(next)
-    setDayNumber(next === 'new' ? 1 : nextDayNumber(trips.find((trip) => trip.id === tripId)))
+    const trip = next === 'new' ? undefined : trips.find((trip) => trip.id === tripId)
+    setDayNumber(trip ? nextDayNumber(trip) : 1)
+    setStartDate(trip?.startDate ?? '')
   }
 
   function submit() {
     if (!canSave) return
+    // 바꿨을 때만 넘김 (서버가 없으면 시작일 칸도 없음)
+    const date = serverEnabled && startDate !== (selectedTrip?.startDate ?? '') ? { startDate } : {}
     const target: SaveTarget =
-      mode === 'new' ? { kind: 'new', name: name.trim(), countryCode: country.code } : { kind: 'existing', tripId }
+      mode === 'new' ? { kind: 'new', name: name.trim(), countryCode: country.code, ...date } : { kind: 'existing', tripId, ...date }
     onSave(target, dayNumber)
   }
 
@@ -109,6 +118,13 @@ export default function SaveDialog({ country, trips, defaultTripId, defaultDayNu
           </select>
         </label>
         {overwrites && <p className="hint error">{t('이미 저장된 {n}일차 일정을 이 일정으로 바꿉니다.', { n: dayNumber })}</p>}
+        {serverEnabled && (
+          <label className="dialog-field">
+            <span className="dialog-label">{t('여행 시작일 (1일차 날짜, 선택)')}</span>
+            <input className="text-input" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            <span className="hint">{t('날짜를 넣으면 일정마다 10분 전에 알림을 보내 드려요. (메시지 탭에서 알림을 켠 기기)')}</span>
+          </label>
+        )}
 
         <div className="wizard-nav">
           <button type="button" className="btn" onClick={onCancel}>

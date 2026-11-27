@@ -1,6 +1,6 @@
-// 메시지 푸시 알림을 받아 띄우는 서비스 워커 코드.
+// 푸시 알림(메시지·좋아요·댓글·일정 10분 전)을 받아 띄우는 서비스 워커 코드.
 // vite-plugin-pwa가 만든 서비스 워커(sw.js)가 importScripts로 불러옴 (vite.config.ts의 workbox.importScripts).
-// 알림 내용은 서버 함수 supabase/functions/dm-push 가 보냄: { title, body, url, tag }
+// 알림 내용은 서버 함수 supabase/functions/dm-push · notify-push 가 보냄: { title, body, url, tag }
 
 self.addEventListener('push', (event) => {
   let data = {}

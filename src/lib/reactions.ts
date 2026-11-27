@@ -4,6 +4,7 @@ import type { FeedComment } from '../types'
 // 게시물에 누른 좋아요와 단 댓글.
 // - 서버(Supabase)에 올라간 글이면 likes·comments 테이블 — 모두에게 보임
 // - 예시 게시물이거나 서버가 없으면 이 브라우저(localStorage)에만
+// - 서버 글에 좋아요·댓글을 남기면 글쓴이 기기로 푸시 알림 (supabase/functions/notify-push)
 
 const likesKey = (userId: string) => `trip-route-planner:likes:v1:${userId}`
 const COMMENTS_KEY = 'trip-route-planner:comments:v1'
@@ -81,6 +82,8 @@ export async function setLiked(userId: string, postId: string, liked: boolean): 
     const { error } = liked
       ? await supabase.from('likes').upsert({ post_id: postId, user_id: userId })
       : await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', userId)
+    // 글쓴이 기기로 알림 (내 글이거나 이미 보낸 좋아요면 서버가 건너뜀). 실패해도 좋아요는 그대로
+    if (!error && liked) void supabase.functions.invoke('notify-push', { body: { kind: 'like', postId } }).catch(() => {})
     return !error
   }
   const others = read<string[]>(likesKey(userId), []).filter((id) => id !== postId)
@@ -95,7 +98,9 @@ export async function addComment(postId: string, comment: Omit<FeedComment, 'id'
       .insert({ post_id: postId, author_id: comment.author.id, text: comment.text })
       .select('id, created_at')
       .single<{ id: string; created_at: string }>()
-    return error || !data ? null : { ...comment, id: data.id, postedAt: data.created_at }
+    if (error || !data) return null
+    void supabase.functions.invoke('notify-push', { body: { kind: 'comment', commentId: data.id } }).catch(() => {})
+    return { ...comment, id: data.id, postedAt: data.created_at }
   }
   const saved: FeedComment = { ...comment, id: `local-${Date.now()}` }
   return saveLocalComments(postId, [...localComments(postId), saved]) ? saved : null

@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "i18n:check": "node scripts/check-i18n.mjs",
-    "schedule:check": "node scripts/check-schedule.mjs"
+    "schedule:check": "node scripts/check-schedule.mjs",
+    "reminders:check": "node scripts/check-reminders.mjs"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^1.16.8",

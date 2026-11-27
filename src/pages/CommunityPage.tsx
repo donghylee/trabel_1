@@ -512,7 +512,7 @@ export function PostCard({
   const visibleComments = showAll ? comments : comments.slice(-2)
 
   return (
-    <article className="post">
+    <article className="post" id={`post-${post.id}`}>
       <header className="post-head">
         <UserIcon icon={post.author.icon} size="medium" />
         <div className="post-author">

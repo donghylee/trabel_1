@@ -1,4 +1,5 @@
 import { supabase } from '../services/supabase'
+import { syncReminders } from './reminders'
 import type { SavedDay, SavedTrip } from '../types'
 
 // 저장한 여행.
@@ -18,7 +19,16 @@ type DayRow = {
   meal_slots: NonNullable<SavedDay['mealSlots']>
   summary: SavedDay['summary']
 }
-type TripRow = { id: string; owner_id: string; name: string; country_code: string; created_at: string; updated_at: string }
+type TripRow = {
+  id: string
+  owner_id: string
+  name: string
+  country_code: string
+  created_at: string
+  updated_at: string
+  /** migrations/005 이후에 생긴 칸 — 그 전 DB에는 없음 */
+  start_date?: string | null
+}
 
 const toDay = (r: DayRow): SavedDay => ({
   dayNumber: r.day_number,
@@ -57,6 +67,7 @@ export async function fetchServerTrips(userId: string): Promise<SavedTrip[] | nu
     countryCode: r.country_code,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    ...(r.start_date !== undefined && { startDate: r.start_date ?? undefined }),
     days: r.trip_days.map(toDay).sort((a, b) => a.dayNumber - b.dayNumber),
   }))
 }
@@ -81,6 +92,8 @@ export async function pushServerTrips(prev: SavedTrip[], next: SavedTrip[], user
         country_code: trip.countryCode,
         created_at: trip.createdAt,
         updated_at: trip.updatedAt,
+        // 시작일을 한 번도 정하지 않은 여행은 이 칸을 보내지 않음 (005 SQL을 아직 안 돌린 DB에서도 저장되게)
+        ...('startDate' in trip && { start_date: trip.startDate ?? null }),
       }
       const saved = await client.from('trips').upsert(row)
       if (saved.error) return saved
@@ -91,8 +104,11 @@ export async function pushServerTrips(prev: SavedTrip[], next: SavedTrip[], user
         .delete()
         .eq('trip_id', trip.id)
         .not('day_number', 'in', `(${dayNumbers.join(',') || 0})`)
-      if (cleared.error || trip.days.length === 0) return cleared
-      return client.from('trip_days').upsert(trip.days.map((d) => toDayRow(trip.id, d)))
+      if (cleared.error) return cleared
+      const days = trip.days.length ? await client.from('trip_days').upsert(trip.days.map((d) => toDayRow(trip.id, d))) : cleared
+      // 일정 알림은 따로 — 실패해도 여행 저장은 성공으로
+      if (!days.error && 'startDate' in trip) await syncReminders(client, trip)
+      return days
     }),
   ])
   return results.every((r) => !r?.error)
@@ -125,9 +141,10 @@ function newId(): string {
   return crypto.randomUUID()
 }
 
+/** startDate: 여행 시작일 (''이면 지움, undefined면 그대로) */
 export type SaveTarget =
-  | { kind: 'new'; name: string; countryCode: string }
-  | { kind: 'existing'; tripId: string }
+  | { kind: 'new'; name: string; countryCode: string; startDate?: string }
+  | { kind: 'existing'; tripId: string; startDate?: string }
 
 /** 하루 일정을 여행에 넣는다. 같은 일차가 있으면 덮어쓴다. 바뀐 목록과 저장된 여행 id를 돌려줌 */
 export function upsertDay(
@@ -136,6 +153,7 @@ export function upsertDay(
   day: SavedDay,
 ): { trips: SavedTrip[]; tripId: string } {
   const now = new Date().toISOString()
+  const startDate = target.startDate !== undefined && { startDate: target.startDate || undefined }
   if (target.kind === 'new') {
     const trip: SavedTrip = {
       id: newId(),
@@ -143,6 +161,7 @@ export function upsertDay(
       countryCode: target.countryCode,
       createdAt: now,
       updatedAt: now,
+      ...startDate,
       days: [day],
     }
     return { trips: [trip, ...trips], tripId: trip.id }
@@ -154,6 +173,7 @@ export function upsertDay(
         : {
             ...trip,
             updatedAt: now,
+            ...startDate,
             days: [...trip.days.filter((d) => d.dayNumber !== day.dayNumber), day].sort(
               (a, b) => a.dayNumber - b.dayNumber,
             ),

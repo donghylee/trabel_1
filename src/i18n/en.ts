@@ -477,4 +477,8 @@ export const en: Record<string, string> = {
   '이동 시간 {n}구간 추가': 'Extra travel time ({n} trips)',
   '없음': 'None',
   '여유 +{d}': 'buffer +{d}',
+  '{n}분 뒤 일정': 'Up next in {n} min',
+  '여행 시작일 (1일차 날짜, 선택)': 'Trip start date (Day 1, optional)',
+  '날짜를 넣으면 일정마다 10분 전에 알림을 보내 드려요. (메시지 탭에서 알림을 켠 기기)':
+    'Add a date to get an alert 10 minutes before each stop (on devices with alerts turned on in Messages).',
 }

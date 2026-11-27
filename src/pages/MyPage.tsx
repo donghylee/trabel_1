@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { findCountry, localizePlaceName, placesOf, tripTitle } from '../data/catalog'
 import { useFetchRealLegs, useRealLegStore } from '../hooks/useRealLegs'
 import { t } from '../i18n'
@@ -47,6 +47,9 @@ type Props = {
   onDeleteTrip: (trip: SavedTrip) => void
   onRenameTrip: (trip: SavedTrip, name: string) => void
   onNewPlan: () => void
+  /** 이 글(내가 올린 글)까지 내려 보여 줌 — 좋아요·댓글 알림을 눌러 왔을 때 */
+  focusPost?: string | null
+  onPostFocused?: () => void
 }
 
 function formatDate(iso: string): string {
@@ -246,6 +249,8 @@ export default function MyPage({
   onDeleteTrip,
   onRenameTrip,
   onNewPlan,
+  focusPost,
+  onPostFocused,
 }: Props) {
   const [renaming, setRenaming] = useState<string | null>(null)
   const [pageWanted, setPage] = useState(0)
@@ -277,6 +282,14 @@ export default function MyPage({
   const loggedIn = !!user
   const myPosts = usePosts(user, true)
   const [postError, setPostError] = useState(false)
+  // 글 목록을 받아 오면 그 글로 한 번 내려 줌
+  const postCount = myPosts.posts.length
+  useEffect(() => {
+    const el = focusPost ? document.getElementById(`post-${focusPost}`) : null
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    onPostFocused?.()
+  }, [focusPost, postCount, onPostFocused])
   const trip = section === 'all' && !selection?.bookmark ? trips.find((x) => x.id === selection?.tripId) : undefined
   const bookmark = selection?.bookmark ? bookmarks?.find((b) => b.postId === selection.tripId) : undefined
 
