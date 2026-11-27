@@ -485,7 +485,6 @@ export const en: Record<string, string> = {
   '회원 탈퇴': 'Delete account',
   '#태그 검색 (예: 맛집)': 'Search tags (e.g. food)',
   '태그 검색': 'Search tags',
-  '🔍 검색': '🔍 Search',
   '영상 파일만 올릴 수 있어요.': 'Only video files can be added.',
   '영상은 {n}MB까지 올릴 수 있어요. 길이를 줄이거나 화질을 낮춰 주세요.': 'Videos can be up to {n}MB. Try a shorter clip or lower quality.',
   '영상 (선택, 1개, {n}MB까지)': 'Video (optional, 1, up to {n}MB)',

@@ -162,7 +162,7 @@ export default function CommunityPage({
             aria-controls="tag-search-panel"
             onClick={() => setSearchOpen((open) => !open)}
           >
-            {t('🔍 검색')}
+            {t('검색')}
           </button>
           <button
             type="button"
