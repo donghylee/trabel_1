@@ -276,7 +276,9 @@ export default function MyPage({
     const observer = new ResizeObserver(() => setListHeight(el.offsetHeight))
     observer.observe(el)
     return () => observer.disconnect()
-  }, [page, pageCount])
+    // 여행을 열면 목록이 사라졌다가 돌아올 때 새로 그려지므로 그때마다 다시 잼
+    // (안 그러면 사라진 목록의 높이 0이 남아 목록이 안 보임)
+  }, [page, pageCount, selection?.tripId, selection?.bookmark])
   // 내가 올린 글의 공유 창 (커뮤니티 게시글과 같은 방식)
   const [sharing, setSharing] = useState<SavedTrip | null>(null)
   const loggedIn = !!user
