@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { findCountry, tripTitle } from '../data/catalog'
 import { t } from '../i18n'
 import { resizeImage } from '../lib/image'
-import { parseTags } from '../lib/posts'
+import { MAX_TAG_LENGTH, MAX_TAGS, parseTags } from '../lib/posts'
 import { renderTripImage } from '../lib/shareImage'
 import type { SavedTrip } from '../types'
 
@@ -276,7 +276,9 @@ export default function WriteDialog({ trips, onCancel, onSubmit, onNewPlan, init
             </div>
 
             <label className="dialog-field">
-              <span className="dialog-label">{t('태그 (선택)')}</span>
+              <span className="dialog-label">
+                {t('태그 (선택)')} <span className="hint">{t('{n}개까지, 한 태그에 {m}자까지', { n: MAX_TAGS, m: MAX_TAG_LENGTH })}</span>
+              </span>
               <input
                 className="text-input"
                 placeholder={t('#도쿄 #2박3일 #맛집')}

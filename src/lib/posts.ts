@@ -38,10 +38,11 @@ const toPost = (r: FeedRow): FeedPost => ({
   postedAt: r.created_at,
 })
 
-/** 최근 글 (새 글이 앞). authorId를 주면 그 사람 글 전부. 실패하면 null */
-export async function fetchServerPosts(authorId?: string): Promise<FeedPost[] | null> {
+/** 최근 글 (새 글이 앞). authorId를 주면 그 사람 글 전부, tag를 주면 그 태그가 달린 글만. 실패하면 null */
+export async function fetchServerPosts(authorId?: string, tag?: string): Promise<FeedPost[] | null> {
   if (!supabase) return null
-  const query = supabase.from('post_feed').select('*').order('created_at', { ascending: false })
+  let query = supabase.from('post_feed').select('*').order('created_at', { ascending: false })
+  if (tag) query = query.contains('tags', [tag])
   const { data, error } = await (authorId ? query.eq('author_id', authorId) : query.limit(FEED_LIMIT))
   return error || !data ? null : (data as FeedRow[]).map(toPost)
 }
@@ -96,7 +97,18 @@ export function savePosts(posts: FeedPost[]): boolean {
   }
 }
 
-/** "#도쿄 #3박4일, 맛집" → ['도쿄', '3박4일', '맛집'] */
+export const MAX_TAGS = 10
+export const MAX_TAG_LENGTH = 20
+
+/** "#도쿄 #3박4일, 맛집" → ['도쿄', '3박4일', '맛집'] (한 글에 10개, 한 태그에 20자까지) */
 export function parseTags(text: string): string[] {
-  return [...new Set(text.split(/[\s,#]+/).map((t) => t.trim()).filter(Boolean))].slice(0, 10)
+  const tags = text.split(/[\s,#]+/).map((t) => [...t.trim()].slice(0, MAX_TAG_LENGTH).join(''))
+  return [...new Set(tags.filter(Boolean))].slice(0, MAX_TAGS)
+}
+
+/** 글들에 많이 달린 태그 (많은 순, 같으면 먼저 나온 순) */
+export function popularTags(posts: FeedPost[], count = 8): string[] {
+  const counts = new Map<string, number>()
+  for (const post of posts) for (const tag of post.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1)
+  return [...counts].sort((a, b) => b[1] - a[1]).slice(0, count).map(([tag]) => tag)
 }

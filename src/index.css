@@ -1668,3 +1668,14 @@ button.write-trip:hover { border-color: var(--strong); }
 /* 계정 설정 — 회원 탈퇴 */
 .delete-account { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--border); padding-top: 14px; }
 .delete-account-link { align-self: flex-end; color: var(--muted); font-size: 13px; }
+
+/* 커뮤니티 — 해시태그 검색·많이 쓰인 태그·글의 태그 */
+.tag-search { display: flex; gap: 8px; }
+.tag-search .text-input { flex: 1; min-width: 0; }
+.tag-chips .tag-chip { font-size: 13px; }
+.tag-active { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0; font-size: 14px; }
+.post-tags { display: flex; flex-wrap: wrap; gap: 2px 8px; }
+.post-tag { border: none; background: none; padding: 0; font: inherit; color: var(--accent); }
+button.post-tag { cursor: pointer; }
+button.post-tag:hover { text-decoration: underline; }
+span.post-tag { color: inherit; }

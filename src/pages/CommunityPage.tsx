@@ -6,6 +6,7 @@ import type { SessionUser } from '../lib/auth'
 import { askConfirm } from '../lib/confirm'
 import { usePosts } from '../hooks/usePosts'
 import { addComment as saveComment, deleteComment, isServerPost, loadReactions, setLiked as saveLiked } from '../lib/reactions'
+import { parseTags, popularTags } from '../lib/posts'
 import { serverEnabled } from '../services/supabase'
 import { renderTripImage } from '../lib/shareImage'
 import { useSwipe } from '../hooks/useSwipe'
@@ -49,7 +50,10 @@ export default function CommunityPage({
 }: Props) {
   const [filter, setFilter] = useState<string | null>(null)
   const [sharing, setSharing] = useState<SavedTrip | null>(null)
-  const feed = usePosts(user)
+  // 고른 태그 (#도쿄) — 태그 검색·많이 쓰인 태그·글의 태그를 눌러서
+  const [tag, setTag] = useState<string | null>(null)
+  const [tagText, setTagText] = useState('')
+  const feed = usePosts(user, false, tag)
   const [writeFor] = useState(() => writeTrip ?? undefined)
   const [writing, setWriting] = useState(() => !!writeTrip && !!user)
   useEffect(() => {
@@ -71,7 +75,25 @@ export default function CommunityPage({
   const showingSamples = !feed.loading && feed.posts.length === 0
   const allPosts: FeedPost[] = showingSamples ? getMockFeed() : feed.posts
   const countries = [...new Set(allPosts.map((p) => p.trip.countryCode))]
-  const posts = filter ? allPosts.filter((p) => p.trip.countryCode === filter) : allPosts
+  const popular = popularTags(allPosts)
+  // 태그를 고르면 서버가 찾아 준 글(최근 50개 밖의 예전 글까지). 예시 게시물·서버 없음이면 지금 목록에서 거름
+  const taggedFromServer = tag && !showingSamples ? feed.tagged : null
+  const tagLoading = !!tag && serverEnabled && !showingSamples && feed.tagged === null
+  const posts = (taggedFromServer ?? allPosts).filter(
+    (p) => (!filter || p.trip.countryCode === filter) && (!tag || p.tags.includes(tag)),
+  )
+
+  function chooseTag(next: string | null) {
+    setTag(next)
+    setTagText('')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function searchTag(e: FormEvent) {
+    e.preventDefault()
+    const [first] = parseTags(tagText)
+    if (first) chooseTag(first)
+  }
 
   async function publish({
     trip,
@@ -96,6 +118,7 @@ export default function CommunityPage({
         : t('저장 공간이 부족합니다. 사진 수를 줄이거나 예전 글을 지운 뒤 다시 올려 주세요.')
     setWriting(false)
     setFilter(null)
+    setTag(null)
     setNotice({ ok: true, text: t('커뮤니티에 글을 올렸습니다.') })
     return null
   }
@@ -133,6 +156,43 @@ export default function CommunityPage({
             {t('글쓰기')}
           </button>
         </div>
+        <form className="tag-search" role="search" onSubmit={searchTag}>
+          <input
+            className="text-input"
+            type="search"
+            placeholder={t('#태그 검색 (예: 맛집)')}
+            value={tagText}
+            onChange={(e) => setTagText(e.target.value)}
+            aria-label={t('태그 검색')}
+            enterKeyHint="search"
+          />
+          <button type="submit" className="btn small" disabled={!parseTags(tagText).length}>
+            {t('검색')}
+          </button>
+        </form>
+        {popular.length > 0 && (
+          <div className="chips tag-chips" aria-label={t('많이 쓰인 태그')}>
+            {popular.map((name) => (
+              <button
+                key={name}
+                type="button"
+                className={`chip tag-chip ${tag === name ? 'active' : ''}`}
+                aria-pressed={tag === name}
+                onClick={() => chooseTag(tag === name ? null : name)}
+              >
+                #{name}
+              </button>
+            ))}
+          </div>
+        )}
+        {tag && (
+          <p className="tag-active">
+            <strong>#{tag}</strong> {t('태그가 달린 글')}
+            <button type="button" className="link-btn" onClick={() => chooseTag(null)}>
+              {t('✕ 전체 보기')}
+            </button>
+          </p>
+        )}
       </div>
       {loginNeeded && !user && (
         <p className="notice error-notice">
@@ -152,7 +212,10 @@ export default function CommunityPage({
               : t('이 브라우저에서 올린 글만 보입니다. 서버를 연결하면 다른 사람이 올린 여행도 나옵니다.')}
         </p>
       )}
-      {feed.loading && <p className="hint">{t('글을 불러오는 중…')}</p>}
+      {(feed.loading || tagLoading) && <p className="hint">{t('글을 불러오는 중…')}</p>}
+      {tag && !feed.loading && !tagLoading && posts.length === 0 && (
+        <p className="hint">{t('#{tag} 태그가 달린 글이 없어요.', { tag })}</p>
+      )}
       {feed.loadFailed && <p className="notice error-notice">{t('글을 불러오지 못했습니다. 새로고침해 주세요.')}</p>}
       {posts.map((post) => (
         <PostCard
@@ -163,6 +226,7 @@ export default function CommunityPage({
           onToggleSave={() => onToggleBookmark(post)}
           onRequireLogin={onRequireLogin}
           onShare={setSharing}
+          onTag={chooseTag}
           onMessage={
             post.author.id && post.author.id !== user?.id
               ? () => onMessage({ id: post.author.id!, nickname: post.author.nickname, icon: post.author.icon })
@@ -415,6 +479,7 @@ export function PostCard({
   onToggleSave,
   onRequireLogin,
   onShare,
+  onTag,
   onMessage,
   onDelete,
 }: {
@@ -425,6 +490,8 @@ export function PostCard({
   onToggleSave: () => void
   onRequireLogin: () => void
   onShare: (trip: SavedTrip) => void
+  /** 태그를 누르면 그 태그가 달린 글만 보기 (커뮤니티에서만 — 없으면 태그는 글자로만) */
+  onTag?: (tag: string) => void
   /** 다른 사람 글일 때만 (예시 게시물은 계정이 없어서 없음) */
   onMessage?: () => void
   /** 내가 쓴 글일 때만 */
@@ -587,7 +654,21 @@ export function PostCard({
         <p className="post-caption">
           <strong>{post.author.nickname}</strong> <span className="post-trip-name">[{tripTitle(post.trip)}]</span> {post.caption}
         </p>
-        <p className="post-tags">{post.tags.map((tag) => `#${tag}`).join(' ')}</p>
+        {post.tags.length > 0 && (
+          <p className="post-tags">
+            {post.tags.map((tag) =>
+              onTag ? (
+                <button key={tag} type="button" className="post-tag" onClick={() => onTag(tag)}>
+                  #{tag}
+                </button>
+              ) : (
+                <span key={tag} className="post-tag">
+                  #{tag}
+                </span>
+              ),
+            )}
+          </p>
+        )}
 
         {comments.length > 2 && !showAll && (
           <button type="button" className="post-more" onClick={() => setShowAll(true)}>

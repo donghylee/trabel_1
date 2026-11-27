@@ -12,14 +12,29 @@ type NewPost = Omit<FeedPost, 'id' | 'postedAt' | 'author' | 'likeCount' | 'comm
  * 서버가 있으면 모두의 글을 받아 오고, 없으면 이 브라우저에서 올린 글만.
  * publish·remove는 실패하면 안내 문구를 돌려줌 (성공이면 null).
  * mine이면 로그인한 사람이 올린 글만 (마이페이지).
+ * tag를 주면 서버에서 그 태그가 달린 글을 따로 받아 tagged로 (서버가 없으면 tagged는 늘 null — 화면에서 거름).
  */
-export function usePosts(user: SessionUser | null, mine = false) {
+export function usePosts(user: SessionUser | null, mine = false, tag: string | null = null) {
   const authorId = mine ? (user?.id ?? null) : undefined
   const [posts, setPosts] = useState<FeedPost[]>(() =>
     serverEnabled ? [] : loadPosts().filter((p) => authorId === undefined || p.author.id === authorId),
   )
   const [loading, setLoading] = useState(serverEnabled)
   const [loadFailed, setLoadFailed] = useState(false)
+  // 태그를 고르면 서버에 그 태그가 달린 글을 따로 물어봄 (최근 글 목록에 없는 예전 글까지). 받는 중이면 null
+  const [tagged, setTagged] = useState<FeedPost[] | null>(null)
+
+  useEffect(() => {
+    setTagged(null)
+    if (!serverEnabled || !tag) return
+    let cancelled = false
+    fetchServerPosts(undefined, tag).then((list) => {
+      if (!cancelled) setTagged(list ?? [])
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [tag])
 
   useEffect(() => {
     if (!serverEnabled) return
@@ -79,8 +94,9 @@ export function usePosts(user: SessionUser | null, mine = false) {
     const removed = posts.find((p) => p.id === postId)
     if (serverEnabled) void deletePhotos('post-photos', [...(removed?.photos ?? []), ...(removed?.cover ? [removed.cover] : [])])
     setPosts(next)
+    setTagged((prev) => prev && prev.filter((p) => p.id !== postId))
     return true
   }
 
-  return { posts, loading, loadFailed, publish, remove }
+  return { posts, tagged, loading, loadFailed, publish, remove }
 }
